@@ -7,7 +7,6 @@
  *
  * @author 6.1100 Staff, last updated January 2024
  */
-
 use clap::Parser;
 
 #[derive(Clone, clap::ValueEnum, Debug)]
@@ -20,9 +19,7 @@ pub enum CompilerAction {
 }
 
 #[derive(Clone, clap::ValueEnum, Debug, PartialEq, Eq, Hash)]
-pub enum Optimization {
-
-}
+pub enum Optimization {}
 
 #[derive(Parser, Debug)]
 pub struct Args {
@@ -35,7 +32,13 @@ pub struct Args {
     pub output: Option<String>,
 
     /// Perform the listed optimizations
-    #[clap(short = 'O', long, value_delimiter = ',', value_enum, value_name = "optimization,..")]
+    #[clap(
+        short = 'O',
+        long,
+        value_delimiter = ',',
+        value_enum,
+        value_name = "optimization,.."
+    )]
     pub opt: Vec<Optimization>,
 
     /// Print debugging information
@@ -45,7 +48,6 @@ pub struct Args {
     /// Decaf file
     pub input: std::path::PathBuf,
 }
-
 
 pub fn parse() -> Args {
     Args::parse()

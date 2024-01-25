@@ -2,6 +2,14 @@ mod utils;
 
 fn main() {
     let args = utils::cli::parse();
+    let _input = std::fs::read_to_string(&args.input).expect("Filename is incorrect.");
+
+    if args.debug {
+        println!(
+            "Filename: {:?}\nDebug: {:?}\nOptimizations: {:?}\nOutput File: {:?}\nTarget: {:?}",
+            args.input, args.debug, args.opt, args.output, args.target
+        );
+    }
 
     match args.target {
         utils::cli::CompilerAction::Default => {
