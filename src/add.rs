@@ -1,7 +1,8 @@
 /**
  * A simple example of how to write unit tests for your code.
  * This example creates a module which contains tests for the  
- * two versions of an add function.
+ * two versions of an add function. You can run the tests by
+ * inputting the command `cargo test` into your terminal
  *
  */
 
