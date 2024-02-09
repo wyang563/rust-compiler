@@ -29,7 +29,7 @@ pub struct Args {
 
     /// write output to
     #[clap(short, long, value_name = "outname")]
-    pub output: Option<String>,
+    pub output: Option<std::path::PathBuf>,
 
     /// Perform the listed optimizations
     #[clap(
