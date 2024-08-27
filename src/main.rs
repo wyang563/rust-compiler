@@ -1,5 +1,8 @@
 mod add;
 mod utils;
+mod scanner;
+
+use std::path::Path;
 
 fn get_writer(output: &Option<std::path::PathBuf>) -> Box<dyn std::io::Write> {
     match output {
@@ -19,14 +22,15 @@ fn main() {
         );
     }
 
-    // Use writeln!(writer, "template string") to write to stdout ot file.
+    // Use writeln!(writer, "template string") to write to stdout or file.
     let _writer = get_writer(&args.output);
     match args.target {
         utils::cli::CompilerAction::Default => {
             panic!("Invalid target");
         }
         utils::cli::CompilerAction::Scan => {
-            todo!("scan");
+            let in_file: &Path = &args.input;
+            scanner::scan(in_file);
         }
         utils::cli::CompilerAction::Parse => {
             todo!("parse");

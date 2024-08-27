@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-
-target/debug/decaf-skeleton-rust "$@"
+cargo build
+target/debug/rust-compiler "$@"
