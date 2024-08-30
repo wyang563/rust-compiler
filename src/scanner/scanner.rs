@@ -2,14 +2,12 @@ use std::path::Path;
 use std::fs::File;
 use std::io::Read;
 
-
-
-#[allow(dead_code)]
 pub fn scan(file_path: &Path) -> String {
     let mut file = File::open(file_path).expect("Failed to Open File");
-    let mut file_contents = String::new();
-    file.read_to_string(&mut file_contents).expect("Failed to read string from file");
-    return file_contents;
+    let mut file_str = String::new();
+    file.read_to_string(&mut file_str).expect("Failed to read string from file");
+
+    return file_str;
 }
 
 // scanner tests

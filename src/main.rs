@@ -30,7 +30,7 @@ fn main() {
         }
         utils::cli::CompilerAction::Scan => {
             let in_file: &Path = &args.input;
-            scanner::scan(in_file);
+            scanner::scanner::scan(in_file);
         }
         utils::cli::CompilerAction::Parse => {
             todo!("parse");
