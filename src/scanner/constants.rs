@@ -1,5 +1,5 @@
 
-pub static RESERVED_LITERALS: &'static [&str] = &[
+const RESERVED_LITERALS: &'static [&str] = &[
     "bool",
     "break",
     "const",
@@ -17,15 +17,18 @@ pub static RESERVED_LITERALS: &'static [&str] = &[
     "void"
 ];
 
-pub static COMMENT_LITERALS: &'static [&str] = &[
-    "//",
-    "/*",
-    "*/"
-];
+pub fn is_whitespace(c: char) -> bool {
+    let whitespace = "\t ";
+    return whitespace.contains(c);
+}
 
-pub static WHITESPACE_LITERALS: &'static [&str] = &[
-    " ",
-    "\n",
-    "\t"
-];
+pub fn is_reserved_literal(c: &str) -> bool {
+    return RESERVED_LITERALS.contains(&c);
+}
+
+pub struct ScannerState {
+    pub in_multi_line_comment: bool,
+    pub in_string: bool,
+    pub in_char: bool,
+}
 
