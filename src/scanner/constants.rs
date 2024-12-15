@@ -18,7 +18,7 @@ const RESERVED_LITERALS: &'static [&str] = &[
 ];
 
 pub fn is_whitespace(c: char) -> bool {
-    let whitespace = "\t ";
+    let whitespace = "\r\t ";
     return whitespace.contains(c);
 }
 
