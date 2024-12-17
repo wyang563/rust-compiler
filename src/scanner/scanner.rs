@@ -4,7 +4,11 @@ use std::io::Read;
 use std::io::Write;
 
 use super::constants::is_whitespace;
+use super::constants::is_alphabetic;
+use super::constants::is_hex;
 use super::constants::is_alphanumeric;
+use super::constants::is_reserved_literal;
+
 
 #[derive(PartialEq, Eq, Debug)]
 enum ScanType {
@@ -40,8 +44,25 @@ fn add_identifier(cur_token: &mut String, next_char: char) -> bool {
 Add next_char to integer
 */
 fn add_integer(cur_token: &mut String, next_char: char) -> bool {
-    return false;
-}
+    if cur_token.len() == 1 {
+        if next_char.is_numeric() || next_char == 'x' {
+            cur_token.push(next_char);
+            return false;
+        } 
+    } else if cur_token.len() > 1 {
+        // check if hex number, otherwise only accept decimal digits
+        if cur_token.chars().nth(1).unwrap() == 'x' {
+            if is_hex(next_char) {
+                cur_token.push(next_char);
+                return false;
+            }
+        } else if next_char.is_numeric() {
+            cur_token.push(next_char);
+            return false;
+        }
+    }
+    return true;
+ }
 
 /*
 Add next_char to start state (most special symbols)
@@ -149,6 +170,7 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
     let mut tokens: Vec<String> = Vec::new();
     for idx in 0..file_str.len() {
         let next_char = file_str.chars().nth(idx).unwrap();
+        // println!("state {:?} cur_token {} next_char {}", scanner_state.state, cur_token, next_char);
         match scanner_state.state {
             ScanType::Comment => {
                 if next_char == '\n' {
@@ -188,12 +210,24 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                 
             },
             ScanType::Integer => {
-
+                if add_integer(&mut cur_token, next_char) {
+                    tokens.push(format!("{} INTLITERAL {}", scanner_state.line_num, cur_token));
+                    cur_token = String::new();
+                    scanner_state.state = ScanType::Start;
+                }
             },
             ScanType::Start => {
                 if add_start(&mut cur_token, next_char) {
+                    if cur_token.len() > 0 {
+                        tokens.push(format!("{} {}", scanner_state.line_num, cur_token));
+                    }
                     cur_token = String::new();
+                    // check if next_char is whitespace, if not we add it to cur_token
+                    if !is_whitespace(next_char) {
+                        cur_token.push(next_char);
+                    }
                 }
+                // check if we need to switch states
                 if cur_token == "//" {
                     scanner_state.state = ScanType::Comment;
                     cur_token = String::new();
@@ -205,6 +239,10 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                     scanner_state.state = ScanType::Char;
                 } else if next_char == '\"' {
                     scanner_state.state = ScanType::String;
+                } else if next_char.is_numeric() {
+                    scanner_state.state = ScanType::Integer;
+                } else if is_alphabetic(next_char) {
+                    scanner_state.state = ScanType::Identifier;
                 }
             },    
         }
