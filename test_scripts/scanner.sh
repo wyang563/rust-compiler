@@ -6,8 +6,6 @@ TIMEOUT=5
 COUNT=0
 TOTAL=0
 
-cd ..
-
 for filename in "$ROOT"/input/*.dcf; do
     touch tmp.out
     echo "Testing: $filename"

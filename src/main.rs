@@ -23,14 +23,14 @@ fn main() {
     }
 
     // Use writeln!(writer, "template string") to write to stdout or file.
-    let _writer = get_writer(&args.output);
+    let writer = get_writer(&args.output);
     match args.target {
         utils::cli::CompilerAction::Default => {
             panic!("Invalid target");
         }
         utils::cli::CompilerAction::Scan => {
             let in_file: &Path = &args.input;
-            scanner::scanner::scan(in_file);
+            scanner::scanner::scan(in_file, writer);
         }
         utils::cli::CompilerAction::Parse => {
             todo!("parse");
