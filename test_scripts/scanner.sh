@@ -12,7 +12,7 @@ for filename in "$ROOT"/input/*.dcf; do
     outname="$(basename "${filename%.dcf}.out")"
     timeout $TIMEOUT $SCANNER --target scan $filename --output tmp.out
     if [[ $filename == *invalid* ]]; then
-        if grep -q "exception" tmp.out; then
+        if grep -q "Error" tmp.out; then
             echo "Pass (invalid): $(basename "$filename")"
             COUNT=$((COUNT+1))
         else

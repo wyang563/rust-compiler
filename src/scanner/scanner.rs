@@ -6,83 +6,97 @@ use std::io::Write;
 use super::constants::is_whitespace;
 use super::constants::is_alphanumeric;
 
+#[derive(PartialEq, Eq, Debug)]
+enum ScanType {
+    Comment,
+    MultilineComment,
+    String,
+    Char, 
+    Integer,
+    Identifier,
+    Start,
+}
+
 struct ScannerState {
-    in_comment: bool,
-    in_multiline_comment: bool,
-    in_string: bool,
-    in_char: bool,
+    state: ScanType,
     line_num: u32,
 }
 
 /*
-check if we should jump to the next literal to process
- */
-fn jump_to_next(cur_token: &mut String, next_char: char) -> bool {
-    if is_whitespace(next_char) {
-        return true;
-    }
-    let cur_token_str = cur_token.as_str();
-    if is_alphanumeric(next_char) {
-        if cur_token_str.len() == 1 && cur_token_str == "_" {
-            return false;
-        } else if is_alphanumeric(cur_token_str.chars().last().unwrap()) {
-            return false;
-        }
-    }
-    match cur_token_str {
-        "/" => {
-            match next_char {
-                '/' | '*' | '=' => return false,
-                _ => return true,
-            }
-        },
-        "+" => {
-            match next_char {
-                '+' | '=' => return false,
-                _ => return true,
-            }
-        },
-        "-" => {
-            match next_char {
-                '-' | '=' => return false,
-                _ => return true,
-            }
-        },
-        "=" | "!" | "%" | "<" | ">" => {
-            match next_char {
-                '=' => return false,
-                _ => return true,
-            }
-        },
-        "&" => {
-            match next_char {
-                '&' => return false,
-                _ => return true,
-            }
-        },
-        "|" => {
-            match next_char {
-                '|' => return false,
-                _ => return true,
-            }
-        },
-        _ => return true,
-    }
+Add next_char to cur_token when in char or string
+*/
+fn add_char_string(cur_token: &mut String, next_char: char) {
+    cur_token.push(next_char);
 }
 
 /*
-increment cur_token, and return true if we finish cur_token ie the next space is whitespace
+Add next_char to cur_token when in identifier
 */
-fn incr_cur_token(state: &mut ScannerState, cur_token: &mut String, next_char: char) -> bool {
-    if next_char == '\n' {
-        state.line_num += 1;
-    }
-    if state.in_string || state.in_char {
-        cur_token.push(next_char);
-        return false;
-    }
-    if jump_to_next(cur_token, next_char) {
+fn add_identifier(cur_token: &mut String, next_char: char) -> bool {
+    return false;
+}
+
+/*
+Add next_char to integer
+*/
+fn add_integer(cur_token: &mut String, next_char: char) -> bool {
+    return false;
+}
+
+/*
+Add next_char to start state (most special symbols)
+*/
+fn add_start(cur_token: &mut String, next_char: char) -> bool {
+    if is_whitespace(next_char) {
         return true;
+    }
+    if cur_token.len() > 0 {
+        let cur_token_str = cur_token.as_str();
+        match cur_token_str {
+            "/" => {
+                match next_char {
+                    '/' | '*' | '=' => (),
+                    _ => return true,
+                }
+            },
+            "+" => {
+                match next_char {
+                    '+' | '=' => (),
+                    _ => return true,
+                }
+            },
+            "-" => {
+                match next_char {
+                    '-' | '=' => (),
+                    _ => return true,
+                }
+            },
+            "*" => {
+                match next_char {
+                    '=' | '/' => (),
+                    _ => return true,
+                }
+            },
+            "=" | "!" | "%" | "<" | ">" => {
+                match next_char {
+                    '=' => (),
+                    _ => return true,
+                }
+            },
+            "&" => {
+                match next_char {
+                    '&' => (),
+                    _ => return true,
+                }
+            },
+            "|" => {
+                match next_char {
+                    '|' => (),
+                    _ => return true,
+                }
+            },
+            _ => return true,
+        }
     }
     cur_token.push(next_char);
     return false;
@@ -94,7 +108,7 @@ check if cur_token is a valid character
 fn is_valid_char(cur_token: &String, next_char: char) -> bool {
     if cur_token.len() == 1 {
         match next_char {
-            '\'' | '\"' => return false,
+            '\'' | '\"' | '\n' | '\t' => return false,
             _ => return true,
         }
     } else if cur_token.len() == 2 {
@@ -114,25 +128,20 @@ fn process_char(scanner_state: &mut ScannerState, cur_token: &mut String, next_c
         return Ok(true);
     }
     // check if next token is valid
-    if is_valid_char(&cur_token, next_char) {
-        return Ok(false);
-    } else {
-        return Err(format!("Line {} - Error: invalid char: {}", scanner_state.line_num, cur_token).to_string());
+    match is_valid_char(&cur_token, next_char) {
+        true => {
+            return Ok(false);
+        }
+        false => {
+            return Err(format!("Line {} - Error: invalid char: {}", scanner_state.line_num, cur_token).to_string());
+        }
     }
 }
-
-/*
-Process ending cur_token after whitespace when not in string or char
-*/
-
 
 fn scan_program(file_str: String) -> Result<Vec<String>, String> {
     // init scanner state
     let mut scanner_state = ScannerState {
-        in_comment: false,
-        in_multiline_comment: false,
-        in_string: false,
-        in_char: false,
+        state: ScanType::Start,
         line_num: 1,
     };
 
@@ -140,59 +149,72 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
     let mut tokens: Vec<String> = Vec::new();
     for idx in 0..file_str.len() {
         let next_char = file_str.chars().nth(idx).unwrap();
-        // comment state
-        if scanner_state.in_comment {
-            if next_char == '\n' {
-                scanner_state.in_comment = false;
-                scanner_state.line_num += 1;
-                cur_token = String::new();
-            }
+        match scanner_state.state {
+            ScanType::Comment => {
+                if next_char == '\n' {
+                    scanner_state.state = ScanType::Start;
+                    cur_token = String::new();
+                }
+            },
+            ScanType::MultilineComment => {
+                if cur_token == "*" && next_char == '/' {
+                    scanner_state.state = ScanType::Start;
+                    cur_token = String::new();
+                } else {
+                    cur_token = next_char.to_string();
+                }
+            },
+            ScanType::String => {
+                if next_char == '\"' {
 
-        // multiline comment state
-        } else if scanner_state.in_multiline_comment {
-            incr_cur_token(&mut scanner_state, &mut cur_token, next_char);
-            if cur_token == "*/" {
-                scanner_state.in_multiline_comment = false;
-            }
-            cur_token = String::new();
-            
-        } else if scanner_state.in_string {
-            if next_char == '\"' {
-
-            }
-
-        } else if scanner_state.in_char {
-            match process_char(&mut scanner_state, &mut cur_token, next_char) {
-                Ok(finish_char) => {
-                    incr_cur_token(&mut scanner_state, &mut cur_token, next_char);
-                    if finish_char {
-                        tokens.push(format!("{} CHARLITERAL {}", scanner_state.line_num, cur_token));
-                        cur_token = String::new();
-                        scanner_state.in_char = false;
+                }
+            },
+            ScanType::Char => {
+                match process_char(&mut scanner_state, &mut cur_token, next_char) {
+                    Ok(finish_char) => {
+                        add_char_string(&mut cur_token, next_char);
+                        if finish_char {
+                            tokens.push(format!("{} CHARLITERAL {}", scanner_state.line_num, cur_token));
+                            cur_token = String::new();
+                            scanner_state.state = ScanType::Start;
+                        }
+                    }
+                    Err(e) => {
+                        return Err(e);
                     }
                 }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-
-        } else {
-            if incr_cur_token(&mut scanner_state, &mut cur_token, next_char) {
-                // handle whitespace
+            },
+            ScanType::Identifier => {
                 
-                cur_token = String::new();
-            }
-            if cur_token == "//" {
-                scanner_state.in_comment = true;
-                cur_token = String::new();
-            
-            } else if cur_token == "/*" {
-                scanner_state.in_multiline_comment = true;
-                cur_token = String::new();
-            } else if next_char == '\'' {
-                scanner_state.in_char = true;
-            }
+            },
+            ScanType::Integer => {
+
+            },
+            ScanType::Start => {
+                if add_start(&mut cur_token, next_char) {
+                    cur_token = String::new();
+                }
+                if cur_token == "//" {
+                    scanner_state.state = ScanType::Comment;
+                    cur_token = String::new();
+                
+                } else if cur_token == "/*" {
+                    scanner_state.state = ScanType::MultilineComment;
+                    cur_token = String::new();
+                } else if next_char == '\'' {
+                    scanner_state.state = ScanType::Char;
+                } else if next_char == '\"' {
+                    scanner_state.state = ScanType::String;
+                }
+            },    
         }
+        if next_char == '\n' {
+            scanner_state.line_num += 1;
+        }
+    }
+    // final state error checking
+    if scanner_state.state == ScanType::Char || scanner_state.state == ScanType::String {
+        return Err(format!("Line {} - Error: invalid token: {}", scanner_state.line_num - 1, cur_token).to_string());
     }
     return Ok(tokens);
 }
