@@ -4,6 +4,7 @@ use std::io::Read;
 use std::io::Write;
 
 use super::constants::is_whitespace;
+use super::constants::is_alphanumeric;
 
 struct ScannerState {
     in_comment: bool,
@@ -14,17 +15,73 @@ struct ScannerState {
 }
 
 /*
+check if we should jump to the next literal to process
+ */
+fn jump_to_next(cur_token: &mut String, next_char: char) -> bool {
+    if is_whitespace(next_char) {
+        return true;
+    }
+    let cur_token_str = cur_token.as_str();
+    if is_alphanumeric(next_char) {
+        if cur_token_str.len() == 1 && cur_token_str == "_" {
+            return false;
+        } else if is_alphanumeric(cur_token_str.chars().last().unwrap()) {
+            return false;
+        }
+    }
+    match cur_token_str {
+        "/" => {
+            match next_char {
+                '/' | '*' | '=' => return false,
+                _ => return true,
+            }
+        },
+        "+" => {
+            match next_char {
+                '+' | '=' => return false,
+                _ => return true,
+            }
+        },
+        "-" => {
+            match next_char {
+                '-' | '=' => return false,
+                _ => return true,
+            }
+        },
+        "=" | "!" | "%" | "<" | ">" => {
+            match next_char {
+                '=' => return false,
+                _ => return true,
+            }
+        },
+        "&" => {
+            match next_char {
+                '&' => return false,
+                _ => return true,
+            }
+        },
+        "|" => {
+            match next_char {
+                '|' => return false,
+                _ => return true,
+            }
+        },
+        _ => return true,
+    }
+}
+
+/*
 increment cur_token, and return true if we finish cur_token ie the next space is whitespace
 */
 fn incr_cur_token(state: &mut ScannerState, cur_token: &mut String, next_char: char) -> bool {
-    if is_whitespace(next_char) && !state.in_string && !state.in_char {
-        return true;
-    }
     if next_char == '\n' {
         state.line_num += 1;
-        if state.in_string || state.in_char {
-            cur_token.push(next_char);
-        }
+    }
+    if state.in_string || state.in_char {
+        cur_token.push(next_char);
+        return false;
+    }
+    if jump_to_next(cur_token, next_char) {
         return true;
     }
     cur_token.push(next_char);
@@ -49,8 +106,11 @@ fn is_valid_char(cur_token: &String, next_char: char) -> bool {
     return false;
 }
 
-fn process_char(tokens: &mut Vec<String>, scanner_state: &mut ScannerState, cur_token: &mut String, next_char: char) -> Result<bool, String> {
-    if next_char == '\'' && cur_token != "\\" {
+/*
+Processes incoming character when we're processing characters
+*/
+fn process_char(scanner_state: &mut ScannerState, cur_token: &mut String, next_char: char) -> Result<bool, String> {
+    if next_char == '\'' && cur_token != "\'\\" {
         return Ok(true);
     }
     // check if next token is valid
@@ -60,6 +120,11 @@ fn process_char(tokens: &mut Vec<String>, scanner_state: &mut ScannerState, cur_
         return Err(format!("Line {} - Error: invalid char: {}", scanner_state.line_num, cur_token).to_string());
     }
 }
+
+/*
+Process ending cur_token after whitespace when not in string or char
+*/
+
 
 fn scan_program(file_str: String) -> Result<Vec<String>, String> {
     // init scanner state
@@ -72,7 +137,6 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
     };
 
     let mut cur_token: String = String::new();
-    let mut end  = false;
     let mut tokens: Vec<String> = Vec::new();
     for idx in 0..file_str.len() {
         let next_char = file_str.chars().nth(idx).unwrap();
@@ -98,7 +162,7 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
             }
 
         } else if scanner_state.in_char {
-            match process_char(&mut tokens, &mut scanner_state, &mut cur_token, next_char) {
+            match process_char(&mut scanner_state, &mut cur_token, next_char) {
                 Ok(finish_char) => {
                     incr_cur_token(&mut scanner_state, &mut cur_token, next_char);
                     if finish_char {
@@ -114,7 +178,8 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
 
         } else {
             if incr_cur_token(&mut scanner_state, &mut cur_token, next_char) {
-                // TODO: add additional logic for handle identifiers
+                // handle whitespace
+                
                 cur_token = String::new();
             }
             if cur_token == "//" {

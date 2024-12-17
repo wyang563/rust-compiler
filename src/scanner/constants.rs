@@ -18,8 +18,14 @@ const RESERVED_LITERALS: &'static [&str] = &[
 ];
 
 pub fn is_whitespace(c: char) -> bool {
-    let whitespace = "\r\t ";
+    let whitespace = "\n\r\t ";
     return whitespace.contains(c);
+}
+
+pub fn is_alphanumeric(c: char) -> bool {
+    let numbers = "0123456789";
+    let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    return numbers.contains(c) || letters.contains(c);
 }
 
 pub fn is_reserved_literal(c: &str) -> bool {
