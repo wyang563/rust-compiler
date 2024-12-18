@@ -37,7 +37,11 @@ fn add_char_string(cur_token: &mut String, next_char: char) {
 Add next_char to cur_token when in identifier
 */
 fn add_identifier(cur_token: &mut String, next_char: char) -> bool {
-    return false;
+    if is_alphanumeric(next_char) {
+        cur_token.push(next_char);
+        return false;
+    }
+    return true;
 }
 
 /*
@@ -45,7 +49,7 @@ Add next_char to integer
 */
 fn add_integer(cur_token: &mut String, next_char: char) -> bool {
     if cur_token.len() == 1 {
-        if next_char.is_numeric() || next_char == 'x' {
+        if next_char.is_numeric() || (cur_token == "0" && next_char == 'x') {
             cur_token.push(next_char);
             return false;
         } 
@@ -168,9 +172,10 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
 
     let mut cur_token: String = String::new();
     let mut tokens: Vec<String> = Vec::new();
+    let mut str_char_phrase = String::new();
     for idx in 0..file_str.len() {
         let next_char = file_str.chars().nth(idx).unwrap();
-        // println!("state {:?} cur_token {} next_char {}", scanner_state.state, cur_token, next_char);
+        // println!("STARTING: state {:?} cur_token {} next_char {}", scanner_state.state, cur_token, next_char);
         match scanner_state.state {
             ScanType::Comment => {
                 if next_char == '\n' {
@@ -188,7 +193,21 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
             },
             ScanType::String => {
                 if next_char == '\"' {
-
+                    scanner_state.state = ScanType::Start;
+                    str_char_phrase = String::new();
+                }
+                match process_char(&mut scanner_state, &mut str_char_phrase, next_char) {
+                    Ok(finish_char) => {
+                        add_char_string(&mut cur_token, next_char);
+                        if finish_char {
+                            str_char_phrase = String::new();                            
+                        } else {
+                            str_char_phrase.push(next_char);
+                        }
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
                 }
             },
             ScanType::Char => {
@@ -207,13 +226,31 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                 }
             },
             ScanType::Identifier => {
-                
+                if add_identifier(&mut cur_token, next_char) {
+                    if is_reserved_literal(&cur_token) {
+                        tokens.push(format!("{} {}", scanner_state.line_num, cur_token));
+                    } else {
+                        tokens.push(format!("{} IDENTIFIER {}", scanner_state.line_num, cur_token));
+                    }
+                    cur_token = String::new();
+                    if !is_whitespace(next_char) {
+                        cur_token.push(next_char);
+                    }
+                    scanner_state.state = ScanType::Start;
+                }
             },
             ScanType::Integer => {
                 if add_integer(&mut cur_token, next_char) {
                     tokens.push(format!("{} INTLITERAL {}", scanner_state.line_num, cur_token));
                     cur_token = String::new();
-                    scanner_state.state = ScanType::Start;
+                    if !is_whitespace(next_char) {
+                        cur_token.push(next_char);
+                    }
+                    if is_alphabetic(next_char) {
+                        scanner_state.state = ScanType::Identifier;
+                    } else {
+                        scanner_state.state = ScanType::Start;
+                    }
                 }
             },
             ScanType::Start => {
@@ -250,9 +287,27 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
             scanner_state.line_num += 1;
         }
     }
-    // final state error checking
+    // final state error checking plus append last cur_token to output tokens vector
     if scanner_state.state == ScanType::Char || scanner_state.state == ScanType::String {
         return Err(format!("Line {} - Error: invalid token: {}", scanner_state.line_num - 1, cur_token).to_string());
+    }
+    if cur_token.len() > 0 {
+        match scanner_state.state {
+            ScanType::Integer => {
+                tokens.push(format!("{} INTLITERAL {}", scanner_state.line_num, cur_token));
+            },
+            ScanType::Identifier => {
+                if is_reserved_literal(&cur_token) {
+                    tokens.push(format!("{} {}", scanner_state.line_num, cur_token));
+                } else {
+                    tokens.push(format!("{} IDENTIFIER {}", scanner_state.line_num, cur_token));
+                }
+            },
+            ScanType::Start => {
+                tokens.push(format!("{} {}", scanner_state.line_num, cur_token));
+            },
+            _ => (),
+        }   
     }
     return Ok(tokens);
 }

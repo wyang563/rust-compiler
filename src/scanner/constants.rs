@@ -23,7 +23,7 @@ pub fn is_whitespace(c: char) -> bool {
 }
 
 pub fn is_alphabetic(c: char) -> bool {
-    let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let letters = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     return letters.contains(c);
 }
 
@@ -34,7 +34,7 @@ pub fn is_hex(c: char) -> bool {
 
 pub fn is_alphanumeric(c: char) -> bool {
     let numbers = "0123456789";
-    let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let letters = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     return numbers.contains(c) || letters.contains(c);
 }
 
