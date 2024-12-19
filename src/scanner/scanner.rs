@@ -27,6 +27,13 @@ struct ScannerState {
 }
 
 /*
+Make sure an identifier, literal, or number doesn't end with a . char
+*/
+fn check_valid_end(next_char: char) -> bool {
+    return next_char != '.';
+}
+
+/*
 Add next_char to cur_token when in char or string
 */
 fn add_char_string(cur_token: &mut String, next_char: char) {
@@ -228,7 +235,14 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
             ScanType::Identifier => {
                 if add_identifier(&mut cur_token, next_char) {
                     if is_reserved_literal(&cur_token) {
-                        tokens.push(format!("{} {}", scanner_state.line_num, cur_token));
+                        match cur_token.as_str() {
+                            "true" | "false" => {
+                                tokens.push(format!("{} BOOLEANLITERAL {}", scanner_state.line_num, cur_token));
+                            },
+                            _ => {
+                                tokens.push(format!("{} {}", scanner_state.line_num, cur_token));
+                            }
+                        }
                     } else {
                         tokens.push(format!("{} IDENTIFIER {}", scanner_state.line_num, cur_token));
                     }
@@ -237,6 +251,9 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                         cur_token.push(next_char);
                     }
                     scanner_state.state = ScanType::Start;
+                    if !check_valid_end(next_char) {
+                        return Err(format!("Line {} - Error: invalid token: {}", scanner_state.line_num, cur_token).to_string());
+                    }
                 }
             },
             ScanType::Integer => {
@@ -250,6 +267,10 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                         scanner_state.state = ScanType::Identifier;
                     } else {
                         scanner_state.state = ScanType::Start;
+                    }
+                    // check for error
+                    if !check_valid_end(next_char) {
+                        return Err(format!("Line {} - Error: invalid token: {}", scanner_state.line_num, cur_token).to_string());
                     }
                 }
             },
