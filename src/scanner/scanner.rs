@@ -8,7 +8,8 @@ use super::constants::is_alphabetic;
 use super::constants::is_hex;
 use super::constants::is_alphanumeric;
 use super::constants::is_reserved_literal;
-
+use super::constants::is_valid_symbol;
+use super::constants::is_numeric;
 
 #[derive(PartialEq, Eq, Debug)]
 enum ScanType {
@@ -24,13 +25,6 @@ enum ScanType {
 struct ScannerState {
     state: ScanType,
     line_num: u32,
-}
-
-/*
-Make sure an identifier, literal, or number doesn't end with a . char
-*/
-fn check_valid_end(next_char: char) -> bool {
-    return next_char != '.';
 }
 
 /*
@@ -78,60 +72,50 @@ fn add_integer(cur_token: &mut String, next_char: char) -> bool {
 /*
 Add next_char to start state (most special symbols)
 */
-fn add_start(cur_token: &mut String, next_char: char) -> bool {
+fn add_start(cur_token: &mut String, next_char: char, scanner_state: &ScannerState) -> Result<bool, String> {
     if is_whitespace(next_char) {
-        return true;
+        // reject single & and | tokens
+        if cur_token == "&" || cur_token == "|" {
+            return Err(format!("Line {} - Error: invalid symbol: {}", scanner_state.line_num, cur_token).to_string())
+        }
+        return Ok(true);
     }
-    if cur_token.len() > 0 {
-        let cur_token_str = cur_token.as_str();
-        match cur_token_str {
-            "/" => {
-                match next_char {
-                    '/' | '*' | '=' => (),
-                    _ => return true,
+    // transition if next char is alpahnumeric, string, or char
+    if is_alphanumeric(next_char) || next_char == '\"' || next_char == '\'' {
+        if cur_token.len() > 0 {
+            return Ok(true);
+        }
+        cur_token.push(next_char);
+        return Ok(false);
+    }
+    
+    // check valid non-alphanumeric char
+    if !is_valid_symbol(next_char) {
+        return Err(format!("Line {} - Error: invalid symbol: {}", scanner_state.line_num, cur_token).to_string());
+    }
+
+    let test_token = format!("{}{}", cur_token, next_char);
+    match cur_token.len() {
+        0 => (),
+        1 => {
+            match test_token.as_str() {
+                "++" | "--" | "==" | "!=" | "<=" | ">=" | "&&" | "||" | "+=" | "-=" | "*=" | "/=" | "%=" | "//" | "/*" => (),
+                _ => {
+                    return Ok(true);
                 }
-            },
-            "+" => {
-                match next_char {
-                    '+' | '=' => (),
-                    _ => return true,
+            }
+        },
+        _ => {
+            for c in test_token.chars() {
+                if c != '-' {
+                    return Ok(true);
                 }
-            },
-            "-" => {
-                match next_char {
-                    '-' | '=' => (),
-                    _ => return true,
-                }
-            },
-            "*" => {
-                match next_char {
-                    '=' | '/' => (),
-                    _ => return true,
-                }
-            },
-            "=" | "!" | "%" | "<" | ">" => {
-                match next_char {
-                    '=' => (),
-                    _ => return true,
-                }
-            },
-            "&" => {
-                match next_char {
-                    '&' => (),
-                    _ => return true,
-                }
-            },
-            "|" => {
-                match next_char {
-                    '|' => (),
-                    _ => return true,
-                }
-            },
-            _ => return true,
+            }
         }
     }
+
     cur_token.push(next_char);
-    return false;
+    return Ok(false);
 }
 
 /*
@@ -247,12 +231,13 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                         tokens.push(format!("{} IDENTIFIER {}", scanner_state.line_num, cur_token));
                     }
                     cur_token = String::new();
-                    if !is_whitespace(next_char) {
-                        cur_token.push(next_char);
-                    }
-                    scanner_state.state = ScanType::Start;
-                    if !check_valid_end(next_char) {
-                        return Err(format!("Line {} - Error: invalid token: {}", scanner_state.line_num, cur_token).to_string());
+                    if is_valid_symbol(next_char) || is_whitespace(next_char) || is_numeric(next_char) {
+                        if !is_whitespace(next_char) {
+                            cur_token.push(next_char);
+                        }
+                        scanner_state.state = ScanType::Start;
+                    } else {
+                        return Err(format!("Line {} - Error: invalid symbol: {}", scanner_state.line_num, next_char).to_string());
                     }
                 }
             },
@@ -260,31 +245,39 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                 if add_integer(&mut cur_token, next_char) {
                     tokens.push(format!("{} INTLITERAL {}", scanner_state.line_num, cur_token));
                     cur_token = String::new();
-                    if !is_whitespace(next_char) {
-                        cur_token.push(next_char);
-                    }
-                    if is_alphabetic(next_char) {
-                        scanner_state.state = ScanType::Identifier;
+                    if is_valid_symbol(next_char) || is_whitespace(next_char) || is_alphabetic(next_char) {
+                        if !is_whitespace(next_char) {
+                            cur_token.push(next_char);
+                        }
+                        if is_alphabetic(next_char) {
+                            scanner_state.state = ScanType::Identifier;
+                        } else {
+                            scanner_state.state = ScanType::Start;
+                        }
                     } else {
-                        scanner_state.state = ScanType::Start;
-                    }
-                    // check for error
-                    if !check_valid_end(next_char) {
-                        return Err(format!("Line {} - Error: invalid token: {}", scanner_state.line_num, cur_token).to_string());
+                        return Err(format!("Line {} - Error: invalid symbol: {}", scanner_state.line_num, next_char).to_string());
                     }
                 }
             },
             ScanType::Start => {
-                if add_start(&mut cur_token, next_char) {
-                    if cur_token.len() > 0 {
-                        tokens.push(format!("{} {}", scanner_state.line_num, cur_token));
+                match add_start(&mut cur_token, next_char, &scanner_state) {
+                    Ok(finish_char) => {
+                        if finish_char {
+                            if cur_token.len() > 0 {
+                                tokens.push(format!("{} {}", scanner_state.line_num, cur_token));
+                            }
+                            cur_token = String::new();
+                            // check if next_char is whitespace, if not we add it to cur_token
+                            if !is_whitespace(next_char) {
+                                cur_token.push(next_char);
+                            }
+                        }
                     }
-                    cur_token = String::new();
-                    // check if next_char is whitespace, if not we add it to cur_token
-                    if !is_whitespace(next_char) {
-                        cur_token.push(next_char);
+                    Err(e) => {
+                        return Err(e);
                     }
                 }
+
                 // check if we need to switch states
                 if cur_token == "//" {
                     scanner_state.state = ScanType::Comment;

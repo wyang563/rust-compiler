@@ -18,3 +18,4 @@ Cargo.lock
 
 # Test Cases
 private-tests-main/
+public-tests-main/

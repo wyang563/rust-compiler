@@ -38,7 +38,12 @@ run_tests () {
     echo "Passed $COUNT out of $TOTAL scanner tests"
 }
 
-echo "Running public tests"
-run_tests $PUBLIC_ROOT
-echo "Running private tests"
-run_tests $PRIVATE_ROOT
+if [[ $1 == "public" ]]; then
+    echo "Running public tests"
+    run_tests $PUBLIC_ROOT
+else
+    echo "Running public tests"
+    run_tests $PUBLIC_ROOT
+    echo "Running private tests"
+    run_tests $PRIVATE_ROOT 
+fi
