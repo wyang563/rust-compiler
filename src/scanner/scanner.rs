@@ -141,6 +141,9 @@ Processes incoming character when we're processing characters
 */
 fn process_char(scanner_state: &mut ScannerState, cur_token: &mut String, next_char: char) -> Result<bool, String> {
     if next_char == '\'' && cur_token != "\'\\" {
+        if cur_token.len() == 1 {
+            return Err(format!("Line {} - Error: empty char", scanner_state.line_num).to_string());
+        }
         return Ok(true);
     }
     // check if next token is valid
@@ -151,6 +154,26 @@ fn process_char(scanner_state: &mut ScannerState, cur_token: &mut String, next_c
         false => {
             return Err(format!("Line {} - Error: invalid char: {}", scanner_state.line_num, cur_token).to_string());
         }
+    }
+}
+
+/*
+Process incoming string chars
+*/
+fn process_str_char(scanner_state: &mut ScannerState, str_char_phrase: &mut String, next_char: char) -> Result<bool, String> {
+    // check if next token is valid
+    if !is_valid_char(&str_char_phrase, next_char) {
+        return Err(format!("Line {} - Error: invalid char: {}", scanner_state.line_num, str_char_phrase).to_string());
+    }
+    match str_char_phrase.len() {
+        1 => {
+            if next_char != '\\' {
+                return Ok(true);
+            } else {
+                return Ok(false);
+            }
+        },
+        _ => return Ok(true),
     }
 }
 
@@ -166,7 +189,7 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
     let mut str_char_phrase = String::new();
     for idx in 0..file_str.len() {
         let next_char = file_str.chars().nth(idx).unwrap();
-        // println!("STARTING: state {:?} cur_token {} next_char {}", scanner_state.state, cur_token, next_char);
+        // println!("STARTING: state {:?} cur_token {} next_char {} str_char_phrase {}", scanner_state.state, cur_token, next_char, str_char_phrase);
         match scanner_state.state {
             ScanType::Comment => {
                 if next_char == '\n' {
@@ -183,21 +206,23 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                 }
             },
             ScanType::String => {
-                if next_char == '\"' {
+                if next_char == '\"' && str_char_phrase != "\'\\" {
                     scanner_state.state = ScanType::Start;
-                    str_char_phrase = String::new();
-                }
-                match process_char(&mut scanner_state, &mut str_char_phrase, next_char) {
-                    Ok(finish_char) => {
-                        add_char_string(&mut cur_token, next_char);
-                        if finish_char {
-                            str_char_phrase = String::new();                            
-                        } else {
+                    cur_token.push(next_char);
+                    tokens.push(format!("{} STRINGLITERAL {}", scanner_state.line_num, cur_token));
+                    cur_token = String::new();
+                } else {
+                    match process_str_char(&mut scanner_state, &mut str_char_phrase, next_char) {
+                        Ok(finish_char) => {
                             str_char_phrase.push(next_char);
+                            if finish_char {
+                                cur_token.push_str(&str_char_phrase[1..]);
+                                str_char_phrase = "\'".to_string();                        
+                            } 
                         }
-                    }
-                    Err(e) => {
-                        return Err(e);
+                        Err(e) => {
+                            return Err(e);
+                        }
                     }
                 }
             },
@@ -289,6 +314,7 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                 } else if next_char == '\'' {
                     scanner_state.state = ScanType::Char;
                 } else if next_char == '\"' {
+                    str_char_phrase = "\'".to_string();
                     scanner_state.state = ScanType::String;
                 } else if next_char.is_numeric() {
                     scanner_state.state = ScanType::Integer;

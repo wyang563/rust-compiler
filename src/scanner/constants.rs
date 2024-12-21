@@ -18,7 +18,7 @@ const RESERVED_LITERALS: &'static [&str] = &[
 ];
 
 pub fn is_whitespace(c: char) -> bool {
-    let whitespace = "\n\r\t ";
+    let whitespace = "\n\r\t ";
     return whitespace.contains(c);
 }
 
@@ -28,7 +28,7 @@ pub fn is_alphabetic(c: char) -> bool {
 }
 
 pub fn is_valid_symbol(c: char) -> bool {
-    let symbols = "-+*/%<>=!&|()[];,:?{}";
+    let symbols = "-+*/%<>=!&|()[];,{}";
     return symbols.contains(c);
 }
 
