@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SCANNER="target/debug/rust-compiler"
-PUBLIC_ROOT="src/public-tests-main/scanner"
-PRIVATE_ROOT="src/private-tests-main/scanner"
+PUBLIC_ROOT="tests/public-tests-main/scanner"
+PRIVATE_ROOT="tests/private-tests-main/scanner"
 TIMEOUT=5
 COUNT=0
 TOTAL=0
@@ -13,7 +13,7 @@ run_tests () {
     COUNT=0
     TOTAL=0
     for filename in "$1"/input/*.dcf; do
-        touch tmp.out
+        touch tests/tmp.out
         echo "Testing: $filename"
         outname="$(basename "${filename%.dcf}.out")"
         timeout $TIMEOUT $SCANNER --target scan $filename --output tmp.out
@@ -33,7 +33,7 @@ run_tests () {
             fi
         fi
         TOTAL=$((TOTAL+1))
-        rm -f tmp.out
+        rm -f tests/tmp.out
     done
     echo "Passed $COUNT out of $TOTAL scanner tests"
 }

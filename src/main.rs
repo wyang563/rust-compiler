@@ -1,8 +1,6 @@
-mod add;
 mod utils;
 mod scanner;
-
-use std::path::Path;
+mod parser;
 
 fn get_writer(output: &Option<std::path::PathBuf>) -> Box<dyn std::io::Write> {
     match output {
@@ -29,11 +27,10 @@ fn main() {
             panic!("Invalid target");
         }
         utils::cli::CompilerAction::Scan => {
-            let in_file: &Path = &args.input;
-            scanner::scanner::scan(in_file, writer);
+            scanner::scanner::scan(&args.input, writer);
         }
         utils::cli::CompilerAction::Parse => {
-            todo!("parse");
+            parser::parser::parse(&args.input, writer);
         }
         utils::cli::CompilerAction::Inter => {
             todo!("inter");

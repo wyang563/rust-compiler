@@ -76,7 +76,7 @@ fn add_start(cur_token: &mut String, next_char: char, scanner_state: &ScannerSta
     if is_whitespace(next_char) {
         // reject single & and | tokens
         if cur_token == "&" || cur_token == "|" {
-            return Err(format!("Line {} - Error: invalid symbol: {}", scanner_state.line_num, cur_token).to_string())
+            return Err(format!("Scanner: Line {} - Error: invalid symbol: {}", scanner_state.line_num, cur_token).to_string())
         }
         return Ok(true);
     }
@@ -91,7 +91,7 @@ fn add_start(cur_token: &mut String, next_char: char, scanner_state: &ScannerSta
     
     // check valid non-alphanumeric char
     if !is_valid_symbol(next_char) {
-        return Err(format!("Line {} - Error: invalid symbol: {}", scanner_state.line_num, cur_token).to_string());
+        return Err(format!("Scanner: Line {} - Error: invalid symbol: {}", scanner_state.line_num, cur_token).to_string());
     }
 
     let test_token = format!("{}{}", cur_token, next_char);
@@ -142,7 +142,7 @@ Processes incoming character when we're processing characters
 fn process_char(scanner_state: &mut ScannerState, cur_token: &mut String, next_char: char) -> Result<bool, String> {
     if next_char == '\'' && cur_token != "\'\\" {
         if cur_token.len() == 1 {
-            return Err(format!("Line {} - Error: empty char", scanner_state.line_num).to_string());
+            return Err(format!("Scanner: Line {} - Error: empty char", scanner_state.line_num).to_string());
         }
         return Ok(true);
     }
@@ -152,7 +152,7 @@ fn process_char(scanner_state: &mut ScannerState, cur_token: &mut String, next_c
             return Ok(false);
         }
         false => {
-            return Err(format!("Line {} - Error: invalid char: {}", scanner_state.line_num, cur_token).to_string());
+            return Err(format!("Scanner: Line {} - Error: invalid char: {}", scanner_state.line_num, cur_token).to_string());
         }
     }
 }
@@ -163,7 +163,7 @@ Process incoming string chars
 fn process_str_char(scanner_state: &mut ScannerState, str_char_phrase: &mut String, next_char: char) -> Result<bool, String> {
     // check if next token is valid
     if !is_valid_char(&str_char_phrase, next_char) {
-        return Err(format!("Line {} - Error: invalid char: {}", scanner_state.line_num, str_char_phrase).to_string());
+        return Err(format!("Scanner: Line {} - Error: invalid char: {}", scanner_state.line_num, str_char_phrase).to_string());
     }
     match str_char_phrase.len() {
         1 => {
@@ -262,7 +262,7 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                         }
                         scanner_state.state = ScanType::Start;
                     } else {
-                        return Err(format!("Line {} - Error: invalid symbol: {}", scanner_state.line_num, next_char).to_string());
+                        return Err(format!("Scanner: Line {} - Error: invalid symbol: {}", scanner_state.line_num, next_char).to_string());
                     }
                 }
             },
@@ -280,7 +280,7 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
                             scanner_state.state = ScanType::Start;
                         }
                     } else {
-                        return Err(format!("Line {} - Error: invalid symbol: {}", scanner_state.line_num, next_char).to_string());
+                        return Err(format!("Scanner: Line {} - Error: invalid symbol: {}", scanner_state.line_num, next_char).to_string());
                     }
                 }
             },
@@ -329,7 +329,7 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
     }
     // final state error checking plus append last cur_token to output tokens vector
     if scanner_state.state == ScanType::Char || scanner_state.state == ScanType::String {
-        return Err(format!("Line {} - Error: invalid token: {}", scanner_state.line_num - 1, cur_token).to_string());
+        return Err(format!("Scanner: Line {} - Error: invalid token: {}", scanner_state.line_num - 1, cur_token).to_string());
     }
     if cur_token.len() > 0 {
         match scanner_state.state {
@@ -374,11 +374,13 @@ pub fn scan(file_path: &Path, mut writer: Box<dyn std::io::Write>) {
                     eprintln!("Failed to write line to output: {}", e);
                 }
             }
+            std::process::exit(0);
         }
         Err(e) => {
             if let Err(write_error) = writeln!(writer, "{}", e) {
                 eprintln!("Failed to write line to output: {}", write_error);
             }
+            std::process::exit(1);
         }
     }
 }
