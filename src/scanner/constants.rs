@@ -43,9 +43,7 @@ pub fn is_numeric(c: char) -> bool {
 }
 
 pub fn is_alphanumeric(c: char) -> bool {
-    let numbers = "0123456789";
-    let letters = "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    return numbers.contains(c) || letters.contains(c);
+    return is_alphabetic(c) || is_numeric(c);
 }
 
 pub fn is_reserved_literal(c: &str) -> bool {

@@ -8,7 +8,6 @@ pub fn parse_file(file_path: &Path) -> Result<AST::Program, String> {
         Ok(tokens) => (), 
         Err(e) => return Err(e)
     }
-    return Ok(AST::Program {});
 }
 
 pub fn parse(file_path: &Path, mut writer: Box<dyn std::io::Write>) {
