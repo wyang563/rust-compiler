@@ -1,151 +1,175 @@
 
 
 pub enum ASTNode {
-    Program(Program),
-
+    Program(Box<Program>),
+    FieldDecl(Box<FieldDecl>),
+    MethodDecl(Box<MethodDecl>),
+    Block(Box<Block>),
+    VarDecl(Box<VarDecl>),
+    MethodArgDecl(Box<MethodArgDecl>),
+    AssignStatement(Box<AssignStatement>),
+    IfStatement(Box<IfStatement>),
+    ForStatement(Box<ForStatement>),
+    WhileStatement(Box<WhileStatement>),
+    ReturnStatement(Box<ReturnStatement>),
+    StatementControl(Box<StatementControl>),
+    Assignment(Box<Assignment>),
+    Increment(Box<Increment>),
+    ForUpdate(Box<ForUpdate>),
+    MethodCall(Box<MethodCall>),
+    UnaryExpression(Box<UnaryExpression>),
+    BinaryExpression(Box<BinaryExpression>),
+    IndexExpression(Box<IndexExpression>),
+    LengthExpression(Box<LengthExpression>),
+    ArrayLiteral(Box<ArrayLiteral>),
+    Identifier(Box<Identifier>),
+    IntConstant(Box<IntConstant>),
+    StringConstant(Box<StringConstant>),
+    BoolConstant(Box<BoolConstant>),
+    CharConstant(Box<CharConstant>),
 }
 
 // Top level declarations
 
 pub struct Program {
-    imports: Vec<String>,
-    fields: Vec<FieldDecl>,
-    methods: Vec<MethodDecl>,
+    pub imports: Vec<String>,
+    pub fields: Vec<Box<FieldDecl>>,
+    pub methods: Vec<Box<MethodDecl>>,
 }
 
 pub struct FieldDecl {
-    is_const: bool,
-    type_name: String,
-    vars: Vec<VarDecl>,
+    pub is_const: bool,
+    pub type_name: String,
+    pub vars: Vec<Box<VarDecl>>,
 }
 
 pub struct MethodDecl{
-    type_name: String,
-    name: Identifier,
-    args: Vec<MethodArgDecl>,
-    body: Block,
+    pub type_name: String,
+    pub name: Identifier,
+    pub args: Vec<Box<MethodArgDecl>>,
+    pub body: Box<Block>,
 }
 
 pub struct Block {
-    fields: Vec<FieldDecl>,
-    statements: Vec<ASTNode>, // statements of type specified by the grammar   
+    pub fields: Vec<Box<FieldDecl>>,
+    pub statements: Vec<Box<ASTNode>>, // statements of type specified by the grammar   
 }
 
 // Declarations
 pub struct VarDecl {
-    name: Identifier,
-    array_len: IntConstant,
-    initializer: ASTNode, // either a literal or an array literal
+    pub name: Box<Identifier>,
+    pub array_len: Box<IntConstant>,
+    pub initializer: Box<ASTNode>, // either a literal or an array literal
 }
 
 pub struct MethodArgDecl {
-    type_name: String,
-    name: Identifier,
+    pub type_name: String,
+    pub name: Box<Identifier>,
 }
 
 // Statements 
 pub struct AssignStatement {
-    location: ASTNode, // either an identifier or an index expression
-    assign_expr: ASTNode, // either Assign or Increment terminal
+    pub location: Box<ASTNode>, // either an identifier or an index expression
+    pub assign_expr: Box<ASTNode>, // either Assign or Increment terminal
 }
 
 pub struct IfStatement {
-    condition: ASTNode, // any expression type specified by the grammar
-    then_block: Block,
-    else_block: Block,
+    pub condition: Box<ASTNode>, // any expression type specified by the grammar
+    pub then_block: Box<Block>,
+    pub else_block: Box<Block>,
 }
 
 pub struct ForStatement {
-    loop_expr: Identifier,
-    start_expr: ASTNode,
-    end_expr: ASTNode,
-    update_expr: ASTNode, // either ForUpdate or MethodCall
-    block: Block,
+    pub loop_expr: Box<Identifier>,
+    pub start_expr: Box<ASTNode>,
+    pub end_expr: Box<ASTNode>,
+    pub update_expr: Box<ASTNode>, // either ForUpdate or MethodCall
+    pub block: Box<Block>,
 }
 
 pub struct WhileStatement {
-    condition: ASTNode, // any expression type specified by the grammar
-    block: Block,
+    pub condition: Box<ASTNode>, // any expression type specified by the grammar
+    pub block: Box<Block>,
 }
 
 pub struct ReturnStatement {
-    expr: ASTNode, // any expression type specified by the grammar
+    pub expr: Box<ASTNode>, // any expression type specified by the grammar
 }
 
 pub struct StatementControl {
-    op: String, // either Break or Continue
+    pub op: String, // either Break or Continue
 }
 
 // Assignments
 pub struct Assignment {
-    assign_op: String, 
-    expr: ASTNode, // any expression type specified by the grammar
+    pub assign_op: String, 
+    pub expr: Box<ASTNode>, // any expression type specified by the grammar
 }
 
 pub struct Increment {
-    increment_op: String,
+    pub increment_op: String,
 }
 
 pub struct ForUpdate {
-    location: ASTNode, // either an identifier or an index expression
-    assign_expr: ASTNode, // either Assign or Increment terminal
+    pub location: Box<ASTNode>, // either an identifier or an index expression
+    pub assign_expr: Box<ASTNode>, // either Assign or Increment terminal
 }
 
 // Expressions
 
 pub struct MethodCall {
-    name: Identifier,
-    args: Vec<ASTNode>,
+    pub name: Box<Identifier>,
+    pub args: Vec<Box<ASTNode>>,
 }
 
 pub struct UnaryExpression {
-    op: String,
-    expr: ASTNode,
+    pub op: String,
+    pub expr: Box<ASTNode>,
 }
 
 pub struct BinaryExpression {
-    op: String,
-    left_expr: ASTNode,
-    right_expr: ASTNode
+    pub op: String,
+    pub left_expr: Box<ASTNode>,
+    pub right_expr: Box<ASTNode>
 }
 
 /*
 For location case <id> '[' <expr> ']'
 */
 pub struct IndexExpression {
-    id: Identifier, 
-    idx_expr: ASTNode,
+    pub id: Box<Identifier>, 
+    pub idx_expr: Box<ASTNode>,
 }
 
 pub struct LengthExpression {
-    id: Identifier,
+    pub id: Box<Identifier>,
 }
 
 // Base Constants and Identifiers
 pub struct ArrayLiteral {
-    array_values: Vec<ASTNode>,
+    pub array_values: Vec<Box<ASTNode>>,
 }
 
 pub struct Identifier {
-    name: String, 
+    pub name: String, 
 }
 
 /*
 Stores both decimal and hex numbers
 */
 pub struct IntConstant {
-    value: i32,
+    pub value: i32,
 }
 
 pub struct StringConstant {
-    value: String,
+    pub value: String,
 }
 
 pub struct BoolConstant {
-    value: bool,
+    pub value: bool,
 }
 
 pub struct CharConstant {
-    value: char,
+    pub value: char,
 }
 
