@@ -32,7 +32,7 @@ pub enum ASTNode {
 // Top level declarations
 
 pub struct Program {
-    pub imports: Vec<String>,
+    pub imports: Vec<Box<Identifier>>,
     pub fields: Vec<Box<FieldDecl>>,
     pub methods: Vec<Box<MethodDecl>>,
 }
@@ -58,8 +58,8 @@ pub struct Block {
 // Declarations
 pub struct VarDecl {
     pub name: Box<Identifier>,
-    pub array_len: Box<IntConstant>,
-    pub initializer: Box<ASTNode>, // either a literal or an array literal
+    pub array_len: Box<Option<IntConstant>>,
+    pub initializer: Box<Option<ASTNode>>, // either a literal or an array literal
 }
 
 pub struct MethodArgDecl {
@@ -158,7 +158,26 @@ pub struct Identifier {
 Stores both decimal and hex numbers
 */
 pub struct IntConstant {
-    pub value: i32,
+    pub value: i64,
+}
+
+impl IntConstant {
+    pub fn new(value: &str) -> IntConstant {
+        let mut sign = 1;
+        if value.starts_with("-") {
+            sign = -1;
+        }
+        let unsigned_val = &value[1..value.len()];
+        if unsigned_val.starts_with("0x") {
+            IntConstant {
+                value: sign * i64::from_str_radix(&unsigned_val[2..unsigned_val.len()], 16).unwrap(),
+            }
+        } else {
+            IntConstant {
+                value: sign * unsigned_val.parse::<i64>().unwrap(),
+            }
+        }
+    }
 }
 
 pub struct StringConstant {
