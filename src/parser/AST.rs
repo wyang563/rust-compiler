@@ -13,8 +13,8 @@ pub enum ASTNode {
     ReturnStatement(ReturnStatement),
     StatementControl(StatementControl),
     Assignment(Assignment),
-    Increment(Increment),
     MethodCall(MethodCall),
+    LenCall(LenCall),
     UnaryExpression(UnaryExpression),
     BinaryExpression(BinaryExpression),
     IndexExpression(IndexExpression),
@@ -96,11 +96,7 @@ pub struct StatementControl {
 pub struct Assignment {
     pub assign_var: Box<ASTNode>, // either an identifier or an index expression
     pub assign_op: String, 
-    pub expr: Box<ASTNode>, // any expression type specified by the grammar
-}
-
-pub struct Increment {
-    pub increment_op: String,
+    pub expr: Box<Option<ASTNode>>, // any expression type specified by the grammar
 }
 
 // Expressions
@@ -108,6 +104,10 @@ pub struct Increment {
 pub struct MethodCall {
     pub name: Box<Identifier>,
     pub args: Vec<Box<ASTNode>>,
+}
+
+pub struct LenCall {
+    pub id: Box<Identifier>,
 }
 
 pub struct UnaryExpression {

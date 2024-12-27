@@ -227,10 +227,6 @@ fn parse_location(parser_state: &mut ParserState) -> Result<AST::ASTNode, String
     }
 }
 
-fn parse_import_arg(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-    return Err("Not implemented".to_string());
-}
-
 fn parse_method_call(parser_state: &mut ParserState) -> Result<AST::MethodCall, String> {
     let method_name = parse_identifier(parser_state)?;
     parser_state.check_token("(", true)?;
@@ -256,19 +252,109 @@ fn parse_method_call(parser_state: &mut ParserState) -> Result<AST::MethodCall, 
 }
 
 fn parse_unary_expression(parser_state: &mut ParserState) -> Result<AST::UnaryExpression, String> {
-    return Err("Not implemented".to_string());
+    parser_state.check_multiple_tokens(vec!["!", "-"], false)?;
+    let op = parser_state.cur_token().token_value.clone();
+    parser_state.consume();
+    let right_expr = parse_expression(parser_state)?;
+    return Ok(AST::UnaryExpression {
+        op: op,
+        expr: Box::new(right_expr),
+    });
 }
 
-fn parse_binary_expression(parser_state: &mut ParserState) -> Result<AST::BinaryExpression, String> {
-    return Err("Not implemented".to_string());
+fn parse_binary_expression(parser_state: &mut ParserState, primary_expr: AST::ASTNode) -> Result<AST::ASTNode, String> {
+    let mut left = primary_expr;
+    while ["+", "-", "*", "/", "%", "<", ">", "<=", ">=", "==", "!=", "&&", "||"].contains(&parser_state
+                                                                                .cur_token()
+                                                                                .token_value.as_str()) {
+        let bin_op = parser_state.cur_token().token_value.clone();
+        parser_state.consume();
+        let right = parse_expression_singular(parser_state)?;
+        left = AST::ASTNode::BinaryExpression(AST::BinaryExpression {
+            op: bin_op,
+            left_expr: Box::new(left),
+            right_expr: Box::new(right),
+        });
+    }
+    return Ok(left);
+}
+
+fn parse_expression_singular(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
+    let primary_expr: AST::ASTNode;
+    match parser_state.cur_token().token_type {
+        TokenType::Int | TokenType::Char | TokenType::Bool => {
+            primary_expr = parse_literal(parser_state)?;
+        },
+        TokenType::Identifier => {
+            let saved_token_idx = parser_state.token_idx;
+            match parse_method_call(parser_state) {
+                Ok(method_call) => {
+                    primary_expr = AST::ASTNode::MethodCall(method_call);
+                },
+                Err(_) => {
+                    parser_state.token_idx = saved_token_idx;
+                    primary_expr = parse_location(parser_state)?;
+                }
+            }
+        },
+        _ => return Err(format!("Line: {} - Error - invalid token type when parsing expression, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
+    }
+    return Ok(primary_expr);
 }
 
 fn parse_expression(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-    return Err("Not implemented".to_string());
+    let primary_expr: AST::ASTNode;
+    match parser_state.cur_token().token_value.as_str() {
+        "len" => {
+            parser_state.consume();
+            parser_state.check_token("(", true)?;
+            let id = parse_identifier(parser_state)?;
+            parser_state.check_token(")", true)?;
+            primary_expr = AST::ASTNode::LenCall(AST::LenCall {
+                id: Box::new(id),
+            });
+        },
+        "(" => {
+            parser_state.consume();
+            primary_expr = parse_expression(parser_state)?;
+            parser_state.check_token(")", true)?;
+        },
+        "-" | "!" => {
+            primary_expr = AST::ASTNode::UnaryExpression(parse_unary_expression(parser_state)?);
+        },
+        _ => {
+            primary_expr = parse_expression_singular(parser_state)?;
+        }
+
+    }
+    return Ok(parse_binary_expression(parser_state, primary_expr)?);
 }
 
 fn parse_assign_expression(parser_state: &mut ParserState) -> Result<AST::Assignment, String> {
-    return Err("Not implemented".to_string());
+    let op = parser_state.cur_token().token_value;
+    let default_var_name = "".to_string();
+    match op.as_str() {
+        "++" | "--" => {
+            parser_state.consume();
+            return Ok(AST::Assignment {
+                assign_var: Box::new(AST::ASTNode::Identifier(AST::Identifier { name: default_var_name })),
+                assign_op: op,
+                expr: Box::new(None),
+            });
+        },
+        "=" | "+=" | "-=" | "*=" | "/=" | "%=" => {
+            parser_state.consume();
+            let assign_expr = parse_expression(parser_state)?;
+            return Ok(AST::Assignment {
+                assign_var: Box::new(AST::ASTNode::Identifier(AST::Identifier { name: default_var_name })),
+                assign_op: op,
+                expr: Box::new(Some(assign_expr)),
+            });
+        },
+        _ => {
+            return Err(format!("Line: {} - Error - incorrect operator symbol, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value));
+        }
+    }
 }
 
 fn parse_if_statement(parser_state: &mut ParserState) -> Result<AST::IfStatement, String> {
@@ -300,11 +386,13 @@ fn parse_for_statement(parser_state: &mut ParserState) -> Result<AST::ForStateme
     
     // parse for_update rule 
     let update_expr: AST::ASTNode;
+    let saved_token_idx = parser_state.token_idx;
     match parse_method_call(parser_state) {
         Ok(method_call) => {
             update_expr = AST::ASTNode::MethodCall(method_call);
         },
         Err(_) => {
+            parser_state.token_idx = saved_token_idx;
             let update_assign_var = parse_location(parser_state)?;
             let mut update_assign_expr = parse_assign_expression(parser_state)?;
             update_assign_expr.assign_var = Box::new(update_assign_var);
@@ -386,6 +474,7 @@ fn parse_statement(parser_state: &mut ParserState) -> Result<AST::ASTNode, Strin
             return Ok(AST::ASTNode::StatementControl(parse_continue_statement(parser_state)?));
         },
         _ => {
+            let saved_token_idx = parser_state.token_idx;
             match parse_method_call(parser_state) {
                 Ok(method_call) => {
                     let method_call_res = Ok(AST::ASTNode::MethodCall(method_call));
@@ -393,6 +482,7 @@ fn parse_statement(parser_state: &mut ParserState) -> Result<AST::ASTNode, Strin
                     return method_call_res;
                 },
                 Err(_) => {
+                    parser_state.token_idx = saved_token_idx;
                     let assign_var = parse_location(parser_state)?;
                     let mut assign_expr = parse_assign_expression(parser_state)?;
                     assign_expr.assign_var = Box::new(assign_var);
