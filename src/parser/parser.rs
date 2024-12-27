@@ -15,6 +15,7 @@ enum TokenType {
     Int,
     Bool,
     Identifier,
+    EOF,
 }
 
 #[derive(Clone)]
@@ -22,6 +23,7 @@ enum TokenType {
 struct Token {
     token_type: TokenType,
     token_value: String,
+    line_num: String,
 }
 
 struct ParserState {
@@ -40,7 +42,7 @@ impl ParserState {
 
     fn check_token(&mut self, comp_token: &str, consume: bool) -> Result<(), String> {
         if self.cur_token().token_value != comp_token {
-            return Err(format!("Expected token: {}, got: {}", comp_token, self.cur_token().token_value));
+            return Err(format!("Line: {} - Expected token: {}, got: {}", self.cur_token().line_num, comp_token, self.cur_token().token_value));
         }
         if consume { // we have consume as a parameter in case we need to store the value of the current token after checking
             self.consume(); 
@@ -55,7 +57,7 @@ impl ParserState {
             }
             return Ok(());
         }
-        return Err(format!("Expected one of: {:?}, got: {}", comp_tokens, self.cur_token().token_value));
+        return Err(format!("Line: {} - Expected one of: {:?}, got: {}", self.cur_token().line_num, comp_tokens, self.cur_token().token_value));
     }
 }
 
@@ -76,12 +78,14 @@ fn unpack_token(symbol_text: &str) -> Token {
             return Token {
                 token_type: type_map.get(parts[1]).unwrap().clone(),
                 token_value: parts[2].to_string(),
+                line_num: parts[0].to_string(),
             }
         }
         _ => {
             return Token {
                 token_type: TokenType::Symbol,
                 token_value: parts[1].to_string(),
+                line_num: parts[0].to_string(),
             }
         }
     }
@@ -92,29 +96,92 @@ fn unpack_token(symbol_text: &str) -> Token {
 fn parse_int_literal(parser_state: &mut ParserState) -> Result<AST::IntConstant, String> {
     match parser_state.cur_token().token_type {
         TokenType::Int => {
-            let int_val = AST::IntConstant::new(parser_state.cur_token().token_value.as_str());
+            let int_val = AST::IntConstant {
+                value: parser_state.cur_token().token_value.clone(),
+            };
             parser_state.consume();
             return Ok(int_val);
         },
-        _ => return Err(format!("Expected int literal, got: {:?}", parser_state.cur_token().token_value)),
+        _ => return Err(format!("Line: {} - Expected int literal, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
     }
 }
 
 fn parse_char_literal(parser_state: &mut ParserState) -> Result<AST::CharConstant, String> {
-    
+    match parser_state.cur_token().token_type {
+        TokenType::Char => {
+            let extract_char = parser_state.cur_token().token_value.clone();
+            let char_val = AST::CharConstant {
+                value: extract_char[1..extract_char.len()-1].to_string(),
+            };
+            parser_state.consume();
+            return Ok(char_val);
+        },
+        _ => return Err(format!("Line: {} - Expected char literal, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
+    }
 }
 
 fn parse_bool_literal(parser_state: &mut ParserState) -> Result<AST::BoolConstant, String> {
-    
+    match parser_state.cur_token().token_type {
+        TokenType::Bool => {
+            let bool_val = AST::BoolConstant {
+                value: parser_state.cur_token().token_value == "true",
+            };
+            parser_state.consume();
+            return Ok(bool_val);
+        },
+        _ => return Err(format!("Line: {} - Expected bool literal, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
+    }
 }
 
 fn parse_string_literal(parser_state: &mut ParserState) -> Result<AST::StringConstant, String> {
-    
+    match parser_state.cur_token().token_type {
+        TokenType::String => {
+            let extract_string = parser_state.cur_token().token_value.clone();
+            let string_val = AST::StringConstant {
+                value: extract_string[1..extract_string.len()-1].to_string(),
+            };
+            parser_state.consume();
+            return Ok(string_val);
+        },
+        _ => return Err(format!("Line: {} - Expected string literal, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
+    }
 }
 
 fn parse_literal(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-
+    if parser_state.cur_token().token_value == "-" {
+        parser_state.consume();
+        return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state)?));
+    }
+    match parser_state.cur_token().token_type {
+        TokenType::Int => {
+            return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state)?));
+        },
+        TokenType::Char => {
+            return Ok(AST::ASTNode::CharConstant(parse_char_literal(parser_state)?));
+        },
+        TokenType::Bool => {
+            return Ok(AST::ASTNode::BoolConstant(parse_bool_literal(parser_state)?));
+        },
+        _ => return Err(format!("Line: {} - Expected literal (char, int, bool), got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
+    }  
 }
+
+fn parse_array_literal(parser_state: &mut ParserState) -> Result<AST::ArrayLiteral, String> {
+    parser_state.check_token("{", true)?;
+    let mut array_vals = vec![];
+    loop {
+        array_vals.push(Box::new(parse_literal(parser_state)?));
+        if parser_state.cur_token().token_value != "," {
+            break;
+        }
+        parser_state.check_token(",", true)?;
+    }
+    parser_state.check_token("}", true)?;
+    return Ok(AST::ArrayLiteral {
+        array_values: array_vals,
+    });
+}
+
 
 fn parse_identifier(parser_state: &mut ParserState) -> Result<AST::Identifier, String> {
     match parser_state.cur_token().token_type {
@@ -125,15 +192,20 @@ fn parse_identifier(parser_state: &mut ParserState) -> Result<AST::Identifier, S
             parser_state.consume();
             return Ok(id);
         },
-        _ => return Err(format!("Expected identifier, got: {:?}", parser_state.cur_token().token_value)),
+        _ => return Err(format!("Line: {} - Expected identifier, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
     }
 }
 
 fn parse_initializer(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-    
+    if parser_state.cur_token().token_value == "{" {
+        let initializer = parse_array_literal(parser_state)?;
+        return Ok(AST::ASTNode::ArrayLiteral(initializer));
+    } else {
+        return parse_literal(parser_state);
+    }
 }
 
-fn parse_array_initializer(parser_state: &mut ParserState) -> Result<AST::ArrayLiteral, String> {
+fn parse_block(parser_state: &mut ParserState) -> Result<AST::Block, String> {
     
 }
 
@@ -198,6 +270,40 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
     });   
 }
 
+fn parse_method_decl(parser_state: &mut ParserState) -> Result<AST::MethodDecl, String> {
+    // consume method type
+    parser_state.check_multiple_tokens(vec!["int", "bool", "void"], false)?;
+    let method_type = parser_state.cur_token().token_value.clone();
+    parser_state.consume();
+    let method_name = parse_identifier(parser_state)?;
+    parser_state.check_token("(", true)?;
+    let mut args: Vec<Box<AST::MethodArgDecl>> = vec![];
+    // parse args
+    if vec!["int", "bool"].contains(&parser_state.cur_token().token_value.as_str()) {
+        loop {
+            let arg_type = parser_state.cur_token().token_value.clone();
+            parser_state.consume();
+            let arg_name = parse_identifier(parser_state)?;
+            args.push(Box::new(AST::MethodArgDecl {
+                type_name: arg_type,
+                name: Box::new(arg_name),
+            }));
+            if parser_state.cur_token().token_value != "," {
+                break;
+            }
+            parser_state.check_token(",", true)?;
+        }
+    }
+    parser_state.check_token(")", true)?;
+    let method_block = parse_block(parser_state)?;
+    return Ok(AST::MethodDecl {
+        type_name: method_type,
+        name: method_name,
+        args: args,
+        body: Box::new(method_block),
+    });
+}
+
 fn parse_program(parser_state: &mut ParserState) -> Result<AST::Program, String> {
     let mut program = AST::Program {
         imports: vec![],
@@ -205,17 +311,24 @@ fn parse_program(parser_state: &mut ParserState) -> Result<AST::Program, String>
         methods: vec![],
     };
 
-    while parser_state.token_idx < parser_state.tokens.len() {
-        // consume imports
-        while parser_state.cur_token().token_value == "import" {
-            let import_id = parse_import_decl(parser_state)?;
-            program.imports.push(Box::new(import_id));
-        }
-        // consume field declarations
-        
-        // consume method declarations
-        
+    // consume imports
+    while parser_state.cur_token().token_value == "import" {
+        let import_id = parse_import_decl(parser_state)?;
+        program.imports.push(Box::new(import_id));
     }
+
+    // consume field declarations
+    while ["int", "bool", "const"].contains(&parser_state.cur_token().token_value.as_str()) {
+        let field_decl = parse_field_decl(parser_state)?;
+        program.fields.push(Box::new(field_decl));
+    }
+
+    // consume method declarations
+    while ["int", "bool", "void"].contains(&parser_state.cur_token().token_value.as_str()) {
+        let method_decl = parse_method_decl(parser_state)?;
+        program.methods.push(Box::new(method_decl));
+    }
+
     return Ok(program);
 }
 
@@ -227,7 +340,12 @@ pub fn parse_file(file_path: &Path) -> Result<AST::Program, String> {
                 tokens: tokens.iter().map(|x| unpack_token(x.as_str())).collect(),
                 token_idx: 0,
             };
-            // Parse tokens
+            // Add EOF token
+            parser_state.tokens.push(Token {
+                token_type: TokenType::EOF,
+                token_value: "EOF".to_string(),
+                line_num: "".to_string(),
+            });
             return parse_program(&mut parser_state);
         }, 
         Err(e) => return Err(e)

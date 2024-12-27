@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 cargo build
-target/debug/rust-compiler "$@"
+RUST_BACKTRACE=1 target/debug/rust-compiler "$@"

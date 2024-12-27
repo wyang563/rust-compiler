@@ -1,32 +1,32 @@
 
 
 pub enum ASTNode {
-    Program(Box<Program>),
-    FieldDecl(Box<FieldDecl>),
-    MethodDecl(Box<MethodDecl>),
-    Block(Box<Block>),
-    VarDecl(Box<VarDecl>),
-    MethodArgDecl(Box<MethodArgDecl>),
-    AssignStatement(Box<AssignStatement>),
-    IfStatement(Box<IfStatement>),
-    ForStatement(Box<ForStatement>),
-    WhileStatement(Box<WhileStatement>),
-    ReturnStatement(Box<ReturnStatement>),
-    StatementControl(Box<StatementControl>),
-    Assignment(Box<Assignment>),
-    Increment(Box<Increment>),
-    ForUpdate(Box<ForUpdate>),
-    MethodCall(Box<MethodCall>),
-    UnaryExpression(Box<UnaryExpression>),
-    BinaryExpression(Box<BinaryExpression>),
-    IndexExpression(Box<IndexExpression>),
-    LengthExpression(Box<LengthExpression>),
-    ArrayLiteral(Box<ArrayLiteral>),
-    Identifier(Box<Identifier>),
-    IntConstant(Box<IntConstant>),
-    StringConstant(Box<StringConstant>),
-    BoolConstant(Box<BoolConstant>),
-    CharConstant(Box<CharConstant>),
+    Program(Program),
+    FieldDecl(FieldDecl),
+    MethodDecl(MethodDecl),
+    Block(Block),
+    VarDecl(VarDecl),
+    MethodArgDecl(MethodArgDecl),
+    AssignStatement(AssignStatement),
+    IfStatement(IfStatement),
+    ForStatement(ForStatement),
+    WhileStatement(WhileStatement),
+    ReturnStatement(ReturnStatement),
+    StatementControl(StatementControl),
+    Assignment(Assignment),
+    Increment(Increment),
+    ForUpdate(ForUpdate),
+    MethodCall(MethodCall),
+    UnaryExpression(UnaryExpression),
+    BinaryExpression(BinaryExpression),
+    IndexExpression(IndexExpression),
+    LengthExpression(LengthExpression),
+    ArrayLiteral(ArrayLiteral),
+    Identifier(Identifier),
+    IntConstant(IntConstant),
+    StringConstant(StringConstant),
+    BoolConstant(BoolConstant),
+    CharConstant(CharConstant),
 }
 
 // Top level declarations
@@ -158,26 +158,7 @@ pub struct Identifier {
 Stores both decimal and hex numbers
 */
 pub struct IntConstant {
-    pub value: i64,
-}
-
-impl IntConstant {
-    pub fn new(value: &str) -> IntConstant {
-        let mut sign = 1;
-        if value.starts_with("-") {
-            sign = -1;
-        }
-        let unsigned_val = &value[1..value.len()];
-        if unsigned_val.starts_with("0x") {
-            IntConstant {
-                value: sign * i64::from_str_radix(&unsigned_val[2..unsigned_val.len()], 16).unwrap(),
-            }
-        } else {
-            IntConstant {
-                value: sign * unsigned_val.parse::<i64>().unwrap(),
-            }
-        }
-    }
+    pub value: String,
 }
 
 pub struct StringConstant {
@@ -189,6 +170,6 @@ pub struct BoolConstant {
 }
 
 pub struct CharConstant {
-    pub value: char,
+    pub value: String,
 }
 
