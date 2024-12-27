@@ -15,12 +15,11 @@ run_tests () {
     for filename in "$1"/illegal/*.dcf; do
         touch tests/tmp.out
         echo "Testing: $filename"
-        timeout $TIMEOUT $PARSER --target parse $filename --output tmp.out
+        timeout $TIMEOUT $PARSER --target parse $filename --output tests/tmp.out
         CODE=$?
         if [ $CODE -ne 1 ]; then
             echo "Fail (illegal): $(basename "$filename")"
             rm -f tests/tmp.out
-            continue
         else 
             echo "Pass (illegal): $(basename "$filename")"
             COUNT=$((COUNT+1))
@@ -32,12 +31,11 @@ run_tests () {
     for filename in "$1"/legal/*.dcf; do
         touch tests/tmp.out
         echo "Testing: $filename"
-        timeout $TIMEOUT $PARSER --target parse $filename --output tmp.out
+        timeout $TIMEOUT $PARSER --target parse $filename --output tests/tmp.out
         CODE=$?
         if [ $CODE -ne 0 ]; then
             echo "Fail (legal): $(basename "$filename")"
             rm -f tests/tmp.out
-            continue
         else 
             echo "Pass (legal): $(basename "$filename")"
             COUNT=$((COUNT+1))

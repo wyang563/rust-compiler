@@ -1,5 +1,3 @@
-use clap::Id;
-
 use super::AST::{self, Block};
 use std::path::Path;
 use super::super::scanner::scanner::scan_file;
@@ -61,6 +59,13 @@ impl ParserState {
         return Err(format!("Line: {} - Expected one of: {:?}, got: {}", 
                             self.cur_token().line_num, comp_tokens, self.cur_token().token_value));
     }
+
+    fn check_incr_token(&mut self, comp_token: &str, incr_index: usize) -> bool {
+        if self.token_idx + incr_index >= self.tokens.len() {
+            return false;
+        }
+        return self.tokens[self.token_idx + incr_index].token_value == comp_token;
+    }
 }
 
 // helper functions
@@ -95,10 +100,11 @@ fn unpack_token(symbol_text: &str) -> Token {
 
 // parse functions for each grammar rule
 
-fn parse_int_literal(parser_state: &mut ParserState) -> Result<AST::IntConstant, String> {
+fn parse_int_literal(parser_state: &mut ParserState, is_neg: bool) -> Result<AST::IntConstant, String> {
     match parser_state.cur_token().token_type {
         TokenType::Int => {
             let int_val = AST::IntConstant {
+                is_neg: is_neg,
                 value: parser_state.cur_token().token_value.clone(),
             };
             parser_state.consume();
@@ -156,11 +162,11 @@ fn parse_string_literal(parser_state: &mut ParserState) -> Result<AST::StringCon
 fn parse_literal(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
     if parser_state.cur_token().token_value == "-" {
         parser_state.consume();
-        return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state)?));
+        return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state, true)?));
     }
     match parser_state.cur_token().token_type {
         TokenType::Int => {
-            return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state)?));
+            return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state, false)?));
         },
         TokenType::Char => {
             return Ok(AST::ASTNode::CharConstant(parse_char_literal(parser_state)?));
@@ -269,7 +275,7 @@ fn parse_binary_expression(parser_state: &mut ParserState, primary_expr: AST::AS
                                                                                 .token_value.as_str()) {
         let bin_op = parser_state.cur_token().token_value.clone();
         parser_state.consume();
-        let right = parse_expression_singular(parser_state)?;
+        let right = parse_expression(parser_state)?;
         left = AST::ASTNode::BinaryExpression(AST::BinaryExpression {
             op: bin_op,
             left_expr: Box::new(left),
@@ -304,6 +310,7 @@ fn parse_expression_singular(parser_state: &mut ParserState) -> Result<AST::ASTN
 
 fn parse_expression(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
     let primary_expr: AST::ASTNode;
+
     match parser_state.cur_token().token_value.as_str() {
         "len" => {
             parser_state.consume();
@@ -539,14 +546,18 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
     
     loop {
         let var_id = parse_identifier(parser_state)?;
+        let mut is_array = false;
         let mut array_len: Option<AST::IntConstant> = None;
         let mut initializer: Option<AST::ASTNode> = None;
 
         // case if we have id[int] initializer
         if parser_state.cur_token().token_value.clone() == "[" {
             parser_state.consume();
-            array_len = Some(parse_int_literal(parser_state)?);
+            if parser_state.cur_token().token_value != "]" {
+                array_len = Some(parse_int_literal(parser_state, false)?);
+            }
             parser_state.check_token("]", true)?;
+            is_array = true;
         }
 
         // case if we have = sign in var initializer
@@ -558,6 +569,7 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
         // add new var to array
         vars.push(Box::new(AST::VarDecl {
             name: Box::new(var_id),
+            is_array: is_array,
             array_len: Box::new(array_len),
             initializer: Box::new(initializer),
         }));
@@ -621,7 +633,9 @@ fn parse_program(parser_state: &mut ParserState) -> Result<AST::Program, String>
     }
 
     // consume field declarations
-    while ["int", "bool", "const"].contains(&parser_state.cur_token().token_value.as_str()) {
+    while ["int", "bool", "const"].contains(&parser_state.cur_token().token_value.as_str()) && 
+            !parser_state.check_incr_token("(", 2) {
+        
         let field_decl = parse_field_decl(parser_state)?;
         program.fields.push(Box::new(field_decl));
     }
@@ -630,6 +644,11 @@ fn parse_program(parser_state: &mut ParserState) -> Result<AST::Program, String>
     while ["int", "bool", "void"].contains(&parser_state.cur_token().token_value.as_str()) {
         let method_decl = parse_method_decl(parser_state)?;
         program.methods.push(Box::new(method_decl));
+    }
+
+    // end check
+    if parser_state.cur_token().token_value != "EOF" {
+        return Err(format!("Line: {} - Error - expected EOF, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value));
     }
 
     return Ok(program);
@@ -659,9 +678,11 @@ pub fn parse(file_path: &Path, mut writer: Box<dyn std::io::Write>) {
     match parse_file(file_path) {
         Ok(_) => {
             writeln!(writer, "Parsed file: {:?}", file_path.display()).unwrap();
+            std::process::exit(0);
         },
         Err(e) => {
             writeln!(writer, "Error parsing file: \n {:?}", e).unwrap();
+            std::process::exit(1);
         }
     }
 }   

@@ -1,12 +1,6 @@
 
 
 pub enum ASTNode {
-    Program(Program),
-    FieldDecl(FieldDecl),
-    MethodDecl(MethodDecl),
-    Block(Block),
-    VarDecl(VarDecl),
-    MethodArgDecl(MethodArgDecl),
     IfStatement(IfStatement),
     ForStatement(ForStatement),
     WhileStatement(WhileStatement),
@@ -55,6 +49,7 @@ pub struct Block {
 // Declarations
 pub struct VarDecl {
     pub name: Box<Identifier>,
+    pub is_array: bool,
     pub array_len: Box<Option<IntConstant>>,
     pub initializer: Box<Option<ASTNode>>, // either a literal or an array literal
 }
@@ -142,6 +137,7 @@ pub struct Identifier {
 Stores both decimal and hex numbers
 */
 pub struct IntConstant {
+    pub is_neg: bool,
     pub value: String,
 }
 
