@@ -7,7 +7,6 @@ pub enum ASTNode {
     Block(Block),
     VarDecl(VarDecl),
     MethodArgDecl(MethodArgDecl),
-    AssignStatement(AssignStatement),
     IfStatement(IfStatement),
     ForStatement(ForStatement),
     WhileStatement(WhileStatement),
@@ -15,12 +14,10 @@ pub enum ASTNode {
     StatementControl(StatementControl),
     Assignment(Assignment),
     Increment(Increment),
-    ForUpdate(ForUpdate),
     MethodCall(MethodCall),
     UnaryExpression(UnaryExpression),
     BinaryExpression(BinaryExpression),
     IndexExpression(IndexExpression),
-    LengthExpression(LengthExpression),
     ArrayLiteral(ArrayLiteral),
     Identifier(Identifier),
     IntConstant(IntConstant),
@@ -68,19 +65,14 @@ pub struct MethodArgDecl {
 }
 
 // Statements 
-pub struct AssignStatement {
-    pub location: Box<ASTNode>, // either an identifier or an index expression
-    pub assign_expr: Box<ASTNode>, // either Assign or Increment terminal
-}
-
 pub struct IfStatement {
     pub condition: Box<ASTNode>, // any expression type specified by the grammar
     pub then_block: Box<Block>,
-    pub else_block: Box<Block>,
+    pub else_block: Box<Option<Block>>,
 }
 
 pub struct ForStatement {
-    pub loop_expr: Box<Identifier>,
+    pub increment_var: Box<Identifier>,
     pub start_expr: Box<ASTNode>,
     pub end_expr: Box<ASTNode>,
     pub update_expr: Box<ASTNode>, // either ForUpdate or MethodCall
@@ -93,7 +85,7 @@ pub struct WhileStatement {
 }
 
 pub struct ReturnStatement {
-    pub expr: Box<ASTNode>, // any expression type specified by the grammar
+    pub expr: Box<Option<ASTNode>>, // any expression type specified by the grammar
 }
 
 pub struct StatementControl {
@@ -102,17 +94,13 @@ pub struct StatementControl {
 
 // Assignments
 pub struct Assignment {
+    pub assign_var: Box<ASTNode>, // either an identifier or an index expression
     pub assign_op: String, 
     pub expr: Box<ASTNode>, // any expression type specified by the grammar
 }
 
 pub struct Increment {
     pub increment_op: String,
-}
-
-pub struct ForUpdate {
-    pub location: Box<ASTNode>, // either an identifier or an index expression
-    pub assign_expr: Box<ASTNode>, // either Assign or Increment terminal
 }
 
 // Expressions
@@ -139,10 +127,6 @@ For location case <id> '[' <expr> ']'
 pub struct IndexExpression {
     pub id: Box<Identifier>, 
     pub idx_expr: Box<ASTNode>,
-}
-
-pub struct LengthExpression {
-    pub id: Box<Identifier>,
 }
 
 // Base Constants and Identifiers
