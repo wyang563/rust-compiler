@@ -95,7 +95,6 @@ pub struct Assignment {
 }
 
 // Expressions
-
 pub struct MethodCall {
     pub name: Box<Identifier>,
     pub args: Vec<Box<ASTNode>>,
