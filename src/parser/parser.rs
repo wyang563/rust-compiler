@@ -1,4 +1,4 @@
-use super::AST::{self, Block};
+use super::AST::{self};
 use std::path::Path;
 use super::super::scanner::scanner::scan_file;
 use std::collections::HashMap;
@@ -440,7 +440,7 @@ fn parse_if_statement(parser_state: &mut ParserState) -> Result<AST::IfStatement
     let condition_expr = parse_expression(parser_state)?;
     parser_state.check_token(")", true)?;
     let then_block = parse_block(parser_state)?;
-    let mut else_block: Option<Block> = None;
+    let mut else_block: Option<AST::Block> = None;
     if parser_state.check_token("else", true) == Ok(()) {
         else_block = Some(parse_block(parser_state)?);
     }
