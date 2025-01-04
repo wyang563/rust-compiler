@@ -2,6 +2,7 @@ use super::visitor::Visitor;
 
 pub enum ASTNode {
     Program(Program),
+    ImportDecl(ImportDecl),
     FieldDecl(FieldDecl),
     MethodDecl(MethodDecl),
     Block(Block),
@@ -43,6 +44,16 @@ pub struct Program {
 impl Program {
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_program(self);
+    }
+}
+
+pub struct ImportDecl {
+    pub import_id: String,
+}
+
+impl ImportDecl {
+    pub fn accept<V: Visitor>(&self, visitor: &mut V) {
+        visitor.visit_import_decl(self);
     }
 }
 

@@ -2,6 +2,7 @@ use super::AST::{self};
 
 pub trait Visitor {
     fn visit_program(&mut self, program: &AST::Program);
+    fn visit_import_decl(&mut self, import_decl: &AST::ImportDecl);
     fn visit_field_decl(&mut self, field_decl: &AST::FieldDecl);
     fn visit_method_decl(&mut self, method_decl: &AST::MethodDecl);
     fn visit_block(&mut self, block: &AST::Block);
@@ -28,6 +29,7 @@ pub trait Visitor {
     fn visit_ast_node(&mut self, ast_node: &AST::ASTNode) {
         match ast_node {
             AST::ASTNode::Program(program) => self.visit_program(program),
+            AST::ASTNode::ImportDecl(import_decl) => self.visit_import_decl(import_decl),
             AST::ASTNode::FieldDecl(field_decl) => self.visit_field_decl(field_decl),
             AST::ASTNode::MethodDecl(method_decl) => self.visit_method_decl(method_decl),
             AST::ASTNode::Block(block) => self.visit_block(block),
