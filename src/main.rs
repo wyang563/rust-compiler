@@ -30,7 +30,7 @@ fn main() {
             scanner::scanner::scan(&args.input, writer);
         }
         utils::cli::CompilerAction::Parse => {
-            parser::parser::parse(&args.input, writer);
+            parser::parser::parse(&args.input, writer, args.debug);
         }
         utils::cli::CompilerAction::Inter => {
             todo!("inter");

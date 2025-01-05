@@ -2,6 +2,7 @@ use super::AST::{self};
 use std::path::Path;
 use super::super::scanner::scanner::scan_file;
 use std::collections::HashMap;
+use super::parser_printer::ParserPrinter;
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -69,9 +70,26 @@ impl ParserState {
 }
 
 // helper functions
+fn split_token(token_str: &str) -> Vec<&str> {
+    let mut parts = vec![];
+    let mut end_ind = 0;
+    for (i, c) in token_str.char_indices() {
+        if c.is_whitespace() {
+            if i > 0 {
+                parts.push(&token_str[end_ind..i]);
+            }
+            end_ind = i + 1;
+            if parts.len() == 2 {
+                break;
+            }
+        }
+    }
+    parts.push(&token_str[end_ind..]);
+    return parts;
+}
 
 fn unpack_token(symbol_text: &str) -> Token {
-    let parts: Vec<&str> = symbol_text.split_whitespace().collect();
+    let parts: Vec<&str> = split_token(symbol_text);
     let type_map: HashMap<&str, TokenType> = HashMap::from([
         ("IDENTIFIER", TokenType::Identifier),
         ("INTLITERAL", TokenType::Int),
@@ -87,7 +105,7 @@ fn unpack_token(symbol_text: &str) -> Token {
                 token_value: parts[2].to_string(),
                 line_num: parts[0].to_string(),
             }
-        }
+        },
         _ => {
             return Token {
                 token_type: TokenType::Symbol,
@@ -147,9 +165,8 @@ fn parse_bool_literal(parser_state: &mut ParserState) -> Result<AST::BoolConstan
 fn parse_string_literal(parser_state: &mut ParserState) -> Result<AST::StringConstant, String> {
     match parser_state.cur_token().token_type {
         TokenType::String => {
-            let extract_string = parser_state.cur_token().token_value.clone();
             let string_val = AST::StringConstant {
-                value: extract_string[1..extract_string.len()-1].to_string(),
+                value: parser_state.cur_token().token_value.clone(),
             };
             parser_state.consume();
             return Ok(string_val);
@@ -299,7 +316,7 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
                 TokenType::Identifier => {
                     let saved_token_idx = parser_state.token_idx;
                     match parse_method_call(parser_state) {
-                        Ok(method_call) => Ok(AST::ASTNode::MethodCall(method_call)),
+                        Ok(method_call) => Ok(AST::ASTNode::MethodCall(method_call)), 
                         Err(_) => {
                             parser_state.token_idx = saved_token_idx;
                             return parse_location(parser_state);
@@ -591,11 +608,13 @@ fn parse_block(parser_state: &mut ParserState) -> Result<AST::Block, String> {
     return Ok(block);
 }
 
-fn parse_import_decl(parser_state: &mut ParserState) -> Result<AST::Identifier, String> {
+fn parse_import_decl(parser_state: &mut ParserState) -> Result<AST::ImportDecl, String> {
     parser_state.check_token("import", true)?;
     let import_id = parse_identifier(parser_state)?;
     parser_state.check_token(";", true)?;
-    return Ok(import_id);
+    return Ok(AST::ImportDecl { 
+        import_id: import_id,
+    });
 }
 
 fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, String> {
@@ -727,7 +746,7 @@ fn parse_program(parser_state: &mut ParserState) -> Result<AST::Program, String>
 pub fn parse_file(file_path: &Path) -> Result<AST::Program, String> {
     // Lex file first
     match scan_file(file_path) {
-        Ok(tokens) => {            
+        Ok(tokens) => {    
             let mut parser_state = ParserState {
                 tokens: tokens.iter().map(|x| unpack_token(x.as_str())).collect(),
                 token_idx: 0,
@@ -744,10 +763,14 @@ pub fn parse_file(file_path: &Path) -> Result<AST::Program, String> {
     }
 }
 
-pub fn parse(file_path: &Path, mut writer: Box<dyn std::io::Write>) {
+pub fn parse(file_path: &Path, mut writer: Box<dyn std::io::Write>, debug: bool) {
     match parse_file(file_path) {
-        Ok(_) => {
-            writeln!(writer, "Parsed file: {:?}", file_path.display()).unwrap();
+        Ok(parsed_program) => {
+            writeln!(writer, "Parsed file: {:?} \n", file_path.display()).unwrap();
+            if debug {
+                let mut pretty_printer = ParserPrinter::new();
+                parsed_program.accept(&mut pretty_printer);
+            }
             std::process::exit(0);
         },
         Err(e) => {

@@ -36,22 +36,24 @@ impl ASTNode {
 // Top level declarations
 
 pub struct Program {
-    pub imports: Vec<Box<Identifier>>,
+    pub imports: Vec<Box<ImportDecl>>,
     pub fields: Vec<Box<FieldDecl>>,
     pub methods: Vec<Box<MethodDecl>>,
 }
 
 impl Program {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_program(self);
     }
 }
 
 pub struct ImportDecl {
-    pub import_id: String,
+    pub import_id: Identifier,
 }
 
 impl ImportDecl {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_import_decl(self);
     }
@@ -64,6 +66,7 @@ pub struct FieldDecl {
 }
 
 impl FieldDecl {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_field_decl(self);
     }
@@ -77,6 +80,7 @@ pub struct MethodDecl{
 }
 
 impl MethodDecl {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_method_decl(self);
     }
@@ -88,6 +92,7 @@ pub struct Block {
 }
 
 impl Block {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_block(self);
     }
@@ -102,6 +107,7 @@ pub struct VarDecl {
 }
 
 impl VarDecl {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_var_decl(self);
     }
@@ -113,6 +119,7 @@ pub struct MethodArgDecl {
 }
 
 impl MethodArgDecl {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_method_arg_decl(self);
     }
@@ -126,6 +133,7 @@ pub struct IfStatement {
 }
 
 impl IfStatement {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_if_statement(self);
     }
@@ -140,6 +148,7 @@ pub struct ForStatement {
 }
 
 impl ForStatement {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_for_statement(self);
     }
@@ -151,6 +160,7 @@ pub struct WhileStatement {
 }
 
 impl WhileStatement {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_while_statement(self);
     }
@@ -161,6 +171,7 @@ pub struct ReturnStatement {
 }
 
 impl ReturnStatement {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_return_statement(self);
     }
@@ -171,6 +182,7 @@ pub struct StatementControl {
 }
 
 impl StatementControl {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_statement_control(self);
     }
@@ -184,6 +196,7 @@ pub struct Assignment {
 }
 
 impl Assignment {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_assignment(self);
     }
@@ -196,6 +209,7 @@ pub struct MethodCall {
 }
 
 impl MethodCall {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_method_call(self);
     }
@@ -206,6 +220,7 @@ pub struct LenCall {
 }
 
 impl LenCall {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_len_call(self);
     }
@@ -217,6 +232,7 @@ pub struct UnaryExpression {
 }
 
 impl UnaryExpression {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_unary_expression(self);
     }
@@ -229,6 +245,7 @@ pub struct BinaryExpression {
 }
 
 impl BinaryExpression {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_binary_expression(self);
     }
@@ -243,6 +260,7 @@ pub struct IndexExpression {
 }
 
 impl IndexExpression {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_index_expression(self);
     }
@@ -254,6 +272,7 @@ pub struct ArrayLiteral {
 }
 
 impl ArrayLiteral {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_array_literal(self);
     }
@@ -264,6 +283,7 @@ pub struct Identifier {
 }
 
 impl Identifier {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_identifier(self);
     }
@@ -278,6 +298,7 @@ pub struct IntConstant {
 }
 
 impl IntConstant {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_int_constant(self);
     }
@@ -288,6 +309,7 @@ pub struct StringConstant {
 }
 
 impl StringConstant {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_string_constant(self);
     }
@@ -298,6 +320,7 @@ pub struct BoolConstant {
 }
 
 impl BoolConstant {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_bool_constant(self);
     }
@@ -308,6 +331,7 @@ pub struct CharConstant {
 }
 
 impl CharConstant {
+    #[allow(unused)]
     pub fn accept<V: Visitor>(&self, visitor: &mut V) {
         visitor.visit_char_constant(self);
     }
