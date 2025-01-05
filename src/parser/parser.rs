@@ -477,6 +477,12 @@ fn parse_for_statement(parser_state: &mut ParserState) -> Result<AST::ForStateme
     parser_state.check_token(";", true)?;
     let end_expr = parse_expression(parser_state)?;
     parser_state.check_token(";", true)?;
+
+    let start_assignment = AST::Assignment {
+        assign_var: Box::new(AST::ASTNode::Identifier(increment_var)),
+        assign_op: "=".to_string(),
+        expr: Box::new(Some(start_expr)),
+    };
     
     // parse for_update rule 
     let update_expr: AST::ASTNode;
@@ -499,8 +505,7 @@ fn parse_for_statement(parser_state: &mut ParserState) -> Result<AST::ForStateme
     let block = parse_block(parser_state)?;
 
     return Ok(AST::ForStatement {
-        increment_var: Box::new(increment_var),
-        start_expr: Box::new(start_expr),
+        start_assignment: Box::new(start_assignment),
         end_expr: Box::new(end_expr),
         update_expr: Box::new(update_expr),
         block: Box::new(block),

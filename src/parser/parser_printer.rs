@@ -1,5 +1,3 @@
-use std::result;
-
 use super::AST::{self};
 use super::visitor::Visitor;
 
@@ -136,9 +134,7 @@ impl Visitor for ParserPrinter {
     fn visit_for_statement(&mut self, for_statement: &AST::ForStatement) {
         self.in_for_loop_def = true;
         self.tab_print("for (");
-        for_statement.increment_var.accept(self);
-        self.tab_print(" = ");
-        for_statement.start_expr.accept(self);
+        for_statement.start_assignment.accept(self);
         self.tab_print("; ");
         for_statement.end_expr.accept(self);
         self.tab_print("; ");

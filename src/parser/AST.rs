@@ -1,5 +1,6 @@
 use super::visitor::Visitor;
 
+#[allow(dead_code)]
 pub enum ASTNode {
     Program(Program),
     ImportDecl(ImportDecl),
@@ -140,8 +141,7 @@ impl IfStatement {
 }
 
 pub struct ForStatement {
-    pub increment_var: Box<Identifier>,
-    pub start_expr: Box<ASTNode>,
+    pub start_assignment: Box<Assignment>,
     pub end_expr: Box<ASTNode>,
     pub update_expr: Box<ASTNode>, // either ForUpdate or MethodCall
     pub block: Box<Block>,
