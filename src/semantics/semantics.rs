@@ -15,9 +15,12 @@ use std::collections::HashMap;
 
 pub struct Interpreter {
     global_scope: GlobalTable,
-    current_scope: Option<MethodTable>,
+    current_scope: Box<Option<MethodTable>>,
     errors: Vec<String>,
     correct: bool,
+
+    // func parameters
+    init_type: Type,
 }
 
 impl Interpreter {
@@ -34,7 +37,7 @@ impl Interpreter {
             return Err(());
 
         } else {
-            let current_scope = self.current_scope.as_ref().unwrap();
+            let current_scope = scope.unwrap();
             if current_scope.entries.contains_key(var_name) {
                 return Ok(current_scope.entries[var_name].clone());
             }
@@ -55,7 +58,7 @@ impl Interpreter {
             if self.current_scope.is_none() {
                 return false;
             }
-            let current_scope = self.current_scope.as_ref().unwrap();
+            let current_scope = self.current_scope.as_ref().as_ref().unwrap();
             if current_scope.entries.contains_key(var_name) {
                 self.errors.push(format!("Error: Identifier {} is declared twice in the same scope.", var_name));
                 self.correct = false;
@@ -63,6 +66,16 @@ impl Interpreter {
             }
         }
         return false;
+    }
+
+    // helpers
+    fn string_to_type(&mut self, str_type: &str) -> Type {
+        match str_type {
+            "int" => Type::Int,
+            "bool" => Type::Bool,
+            "void" => Type::Void,
+            _ => panic!("invalid type"),
+        }
     }
 }
 
@@ -72,7 +85,7 @@ impl Visitor for Interpreter {
         self.global_scope = GlobalTable {
             entries: HashMap::new(),            
         };
-        self.current_scope = None;
+        self.current_scope = Box::new(None);
         self.errors = vec![];
         self.correct = true;
 
@@ -85,6 +98,7 @@ impl Visitor for Interpreter {
         for method_decl in &program.methods {
             self.visit_method_decl(method_decl);
         }
+        // Rule 3: The program contains a definition for a method called main that has type void and takes no parameters.
     }
 
     fn visit_import_decl(&mut self, import_decl: &AST::ImportDecl) { 
@@ -109,7 +123,6 @@ impl Visitor for Interpreter {
 
     fn visit_method_decl(&mut self, method_decl: &AST::MethodDecl) {
         // Rule 1: No identifier is declared twice in the same scope
-        // Rule 3: The program contains a definition for a method called main that has type void and takes no parameters.
     }
 
     fn visit_block(&mut self, block: &AST::Block) {
@@ -117,13 +130,52 @@ impl Visitor for Interpreter {
     }
 
     fn visit_var_decl(&mut self, var_decl: &AST::VarDecl) {
-        // Rule 1: No identifier is declared twice in the same scope
-        
-        // Rule 4: All types of initializers must match the type of the variable being initialized.
-        // Rule 6: If present, the ⟨int literal⟩ in an array declaration must be greater than 0.
-        // Rule 22: Declarations of const locations must have an initializer
-        // Rule 5: Array initializers have either a declared length or an initializer list, but not both.
+        self.init_type = self.string_to_type(var_decl.type_name.as_str());
 
+        // Rule 1: No identifier is declared twice in the same scope
+        self.visit_identifier(var_decl.name.as_ref());
+        
+        // Rule 22: Declarations of const locations must have an initializer
+        if var_decl.is_const && var_decl.initializer.as_ref().is_none() {
+            self.correct = false;
+            self.errors.push(format!("Error: Const location {} must have an initializer.", var_decl.name.as_ref().name));
+        }
+
+        if var_decl.is_array {
+            if let Some(array_len_node) = var_decl.array_len.as_ref() {
+                self.visit_int_constant(array_len_node);
+                // Rule 6: If present, the ⟨int literal⟩ in an array declaration must be greater than 0.
+                if array_len_node.value.parse::<i64>().unwrap() <= 0 {
+                    self.correct = false;
+                    self.errors.push(format!("Error: Array initializer length must be greater than 0."));
+                }
+                // Rule 5: Array initializers have either a declared length or an initializer list, but not both.
+                if var_decl.initializer.as_ref().is_some() {
+                    self.correct = false;
+                    self.errors.push(format!("Error: Array initializers have either a declared length or an initializer list, but not both."));
+                }
+            } else {
+                // Rule 5: Array initializers have either a declared length or an initializer list, but not both.
+                if var_decl.initializer.as_ref().is_none() {
+                    self.correct = false;
+                    self.errors.push(format!("Error: Array initializers have either a declared length or an initializer list, but not both."));
+                }
+                match var_decl.initializer.as_ref().as_ref().unwrap() {
+                    AST::ASTNode::ArrayLiteral(array_literal) => {
+                        // Rule 4: All types of initializers must match the type of the variable being initialized.
+                        self.visit_array_literal(array_literal);
+                    },
+                    _ => {
+                        self.correct = false;
+                        self.errors.push(format!("Error: expected an array list as initializer for variable of type array."));
+                    }
+                }
+            } 
+        } 
+        
+        else {
+
+        }
     }
 
     fn visit_method_arg_decl(&mut self, method_arg_decl: &AST::MethodArgDecl) {
@@ -193,17 +245,20 @@ impl Visitor for Interpreter {
     fn visit_identifier(&mut self, identifier: &AST::Identifier) {
         let id_name = identifier.name.as_str();
         match identifier.status {
+            // init variable
             0 => {
                 // Rule 1: No identifier is declared twice in the same scope
                 self.check_declared(id_name);
             },
+            // read variable
             1 => {
                 // Rule 2: No identifier is used before it is declared
-                self.find_var(id_name);
+                _ = self.find_var(id_name, self.current_scope.clone());
             },
+            // write variable
             2 => {
                 // Rule 2: No identifier is used before it is declared
-                match self.find_var(id_name) {
+                match self.find_var(id_name, self.current_scope.clone()) {
                     Ok(id_entry) => {
                         // Rule 23: const locations may not be assigned to
                         if id_entry.get_is_const() {
@@ -223,6 +278,13 @@ impl Visitor for Interpreter {
 
     fn visit_int_constant(&mut self, int_constant: &AST::IntConstant) {
         // Rule 25: All integer literals must be in the 64 bit integer range: −9223372036854775808 ≤ x ≤ 9223372036854775807
+        match int_constant.value.parse::<i64>() {
+            Ok(_) => (),
+            Err(_) => {
+                self.errors.push(format!("Error: Integer literal {} is out of 64 bit range.", int_constant.value));
+                self.correct = false;
+            }
+        }
     }
 
     fn visit_string_constant(&mut self, string_constant: &AST::StringConstant) {
