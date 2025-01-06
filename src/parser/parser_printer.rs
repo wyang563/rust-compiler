@@ -3,6 +3,7 @@ use super::visitor::Visitor;
 
 pub struct ParserPrinter {
     indent: usize,
+    // flags for parser printer state
     new_line: bool,
     in_for_loop_def: bool,
     in_expr: bool,

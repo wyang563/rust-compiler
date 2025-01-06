@@ -61,8 +61,8 @@ impl ImportDecl {
 }
 
 pub struct FieldDecl {
-    pub is_const: bool,
     pub type_name: String,
+    pub is_const: bool,
     pub vars: Vec<Box<VarDecl>>,
 }
 
@@ -102,6 +102,8 @@ impl Block {
 // Declarations
 pub struct VarDecl {
     pub name: Box<Identifier>,
+    pub is_const: bool,
+    pub type_name: String,
     pub is_array: bool,
     pub array_len: Box<Option<IntConstant>>,
     pub initializer: Box<Option<ASTNode>>, // either a literal or an array literal
@@ -280,6 +282,7 @@ impl ArrayLiteral {
 
 pub struct Identifier {
     pub name: String, 
+    pub status: i32, // 0 for declare, 1 for read, 2 for write
 }
 
 impl Identifier {

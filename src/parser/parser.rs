@@ -212,11 +212,12 @@ fn parse_array_literal(parser_state: &mut ParserState) -> Result<AST::ArrayLiter
     });
 }
 
-fn parse_identifier(parser_state: &mut ParserState) -> Result<AST::Identifier, String> {
+fn parse_identifier(parser_state: &mut ParserState, status: i32) -> Result<AST::Identifier, String> {
     match parser_state.cur_token().token_type {
         TokenType::Identifier => {
             let id = AST::Identifier {
                 name: parser_state.cur_token().token_value.clone(),
+                status: status,
             };
             parser_state.consume();
             return Ok(id);
@@ -234,8 +235,8 @@ fn parse_initializer(parser_state: &mut ParserState) -> Result<AST::ASTNode, Str
     }
 }
 
-fn parse_location(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-    let id = parse_identifier(parser_state)?;
+fn parse_location(parser_state: &mut ParserState, status: i32) -> Result<AST::ASTNode, String> {
+    let id = parse_identifier(parser_state, status)?;
     if parser_state.cur_token().token_value == "[" {
         parser_state.consume();
         let idx_expr = parse_expression(parser_state)?;
@@ -250,7 +251,7 @@ fn parse_location(parser_state: &mut ParserState) -> Result<AST::ASTNode, String
 }
 
 fn parse_method_call(parser_state: &mut ParserState) -> Result<AST::MethodCall, String> {
-    let method_name = parse_identifier(parser_state)?;
+    let method_name = parse_identifier(parser_state, 1)?;
     parser_state.check_token("(", true)?;
     let mut args: Vec<Box<AST::ASTNode>> = vec![];
     if parser_state.cur_token().token_value != ")" {
@@ -279,7 +280,7 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
         "len" => {
             parser_state.consume();
             parser_state.check_token("(", true)?;
-            let id = parse_identifier(parser_state)?;
+            let id = parse_identifier(parser_state, 1)?;
             parser_state.check_token(")", true)?;
             return Ok(AST::ASTNode::LenCall(AST::LenCall {
                 id: Box::new(id),
@@ -319,7 +320,7 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
                         Ok(method_call) => Ok(AST::ASTNode::MethodCall(method_call)), 
                         Err(_) => {
                             parser_state.token_idx = saved_token_idx;
-                            return parse_location(parser_state);
+                            return parse_location(parser_state, 1);
                         }
                     }
                 },
@@ -431,7 +432,7 @@ fn parse_assign_expression(parser_state: &mut ParserState) -> Result<AST::Assign
         "++" | "--" => {
             parser_state.consume();
             return Ok(AST::Assignment {
-                assign_var: Box::new(AST::ASTNode::Identifier(AST::Identifier { name: default_var_name })),
+                assign_var: Box::new(AST::ASTNode::Identifier(AST::Identifier { name: default_var_name, status: 2 })),
                 assign_op: op,
                 expr: Box::new(None),
             });
@@ -440,7 +441,7 @@ fn parse_assign_expression(parser_state: &mut ParserState) -> Result<AST::Assign
             parser_state.consume();
             let assign_expr = parse_expression(parser_state)?;
             return Ok(AST::Assignment {
-                assign_var: Box::new(AST::ASTNode::Identifier(AST::Identifier { name: default_var_name })),
+                assign_var: Box::new(AST::ASTNode::Identifier(AST::Identifier { name: default_var_name, status: 2 })),
                 assign_op: op,
                 expr: Box::new(Some(assign_expr)),
             });
@@ -471,7 +472,7 @@ fn parse_if_statement(parser_state: &mut ParserState) -> Result<AST::IfStatement
 fn parse_for_statement(parser_state: &mut ParserState) -> Result<AST::ForStatement, String> {
     parser_state.check_token("for", true)?;
     parser_state.check_token("(", true)?;
-    let increment_var = parse_identifier(parser_state)?;
+    let increment_var = parse_identifier(parser_state, 2)?;
     parser_state.check_token("=", true)?;
     let start_expr = parse_expression(parser_state)?;
     parser_state.check_token(";", true)?;
@@ -493,7 +494,7 @@ fn parse_for_statement(parser_state: &mut ParserState) -> Result<AST::ForStateme
         },
         Err(_) => {
             parser_state.token_idx = saved_token_idx;
-            let update_assign_var = parse_location(parser_state)?;
+            let update_assign_var = parse_location(parser_state, 2)?;
             let mut update_assign_expr = parse_assign_expression(parser_state)?;
             update_assign_expr.assign_var = Box::new(update_assign_var);
             update_expr = AST::ASTNode::Assignment(update_assign_expr);
@@ -582,7 +583,7 @@ fn parse_statement(parser_state: &mut ParserState) -> Result<AST::ASTNode, Strin
                 },
                 Err(_) => {
                     parser_state.token_idx = saved_token_idx;
-                    let assign_var = parse_location(parser_state)?;
+                    let assign_var = parse_location(parser_state, 2)?;
                     let mut assign_expr = parse_assign_expression(parser_state)?;
                     assign_expr.assign_var = Box::new(assign_var);
                     parser_state.check_token(";", true)?;
@@ -615,7 +616,7 @@ fn parse_block(parser_state: &mut ParserState) -> Result<AST::Block, String> {
 
 fn parse_import_decl(parser_state: &mut ParserState) -> Result<AST::ImportDecl, String> {
     parser_state.check_token("import", true)?;
-    let import_id = parse_identifier(parser_state)?;
+    let import_id = parse_identifier(parser_state, 0)?;
     parser_state.check_token(";", true)?;
     return Ok(AST::ImportDecl { 
         import_id: import_id,
@@ -639,7 +640,7 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
     let mut vars: Vec<Box<AST::VarDecl>> = vec![];
     
     loop {
-        let var_id = parse_identifier(parser_state)?;
+        let var_id = parse_identifier(parser_state, 0)?;
         let mut is_array = false;
         let mut array_len: Option<AST::IntConstant> = None;
         let mut initializer: Option<AST::ASTNode> = None;
@@ -663,6 +664,8 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
         // add new var to array
         vars.push(Box::new(AST::VarDecl {
             name: Box::new(var_id),
+            is_const: is_const,
+            type_name: field_type.clone(),
             is_array: is_array,
             array_len: Box::new(array_len),
             initializer: Box::new(initializer),
@@ -674,8 +677,8 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
     }
     parser_state.check_token(";", true)?;
     return Ok(AST::FieldDecl {
-        is_const: is_const,
         type_name: field_type,
+        is_const: is_const,
         vars: vars,
     });   
 }
@@ -685,7 +688,7 @@ fn parse_method_decl(parser_state: &mut ParserState) -> Result<AST::MethodDecl, 
     parser_state.check_multiple_tokens(vec!["int", "bool", "void"], false)?;
     let method_type = parser_state.cur_token().token_value.clone();
     parser_state.consume();
-    let method_name = parse_identifier(parser_state)?;
+    let method_name = parse_identifier(parser_state, 0)?;
     parser_state.check_token("(", true)?;
     let mut args: Vec<Box<AST::MethodArgDecl>> = vec![];
     // parse args
@@ -693,7 +696,7 @@ fn parse_method_decl(parser_state: &mut ParserState) -> Result<AST::MethodDecl, 
         loop {
             let arg_type = parser_state.cur_token().token_value.clone();
             parser_state.consume();
-            let arg_name = parse_identifier(parser_state)?;
+            let arg_name = parse_identifier(parser_state, 0)?;
             args.push(Box::new(AST::MethodArgDecl {
                 type_name: arg_type,
                 name: Box::new(arg_name),
