@@ -23,6 +23,9 @@ pub struct Interpreter {
     checking_type: bool, // whether we are checking the type of a variable, used during field declarations
     init_method: bool, // whether we are initializing a method, this is so we don't create two scopes when we do visit method_decl and then visit_block
     init_type: Type, // type of varaible being initialized
+
+    // func result holders
+    result_expr_type: Type,
 }
 
 impl Interpreter {
@@ -90,6 +93,7 @@ impl Interpreter {
         self.correct = false;
     }
 
+    // visit func for abstract nodes
     fn visit_literal(&mut self, literal: &AST::ASTNode) {
         self.checking_type = true;
         // Rule 4: All types of initializers must match the type of the variable being initialized.
@@ -109,6 +113,41 @@ impl Interpreter {
         }
         self.checking_type = false;
     }
+
+    fn visit_expression(&mut self, expression: &AST::ASTNode) {
+        match expression {
+            AST::ASTNode::UnaryExpression(unary_expression) => {
+                self.visit_unary_expression(unary_expression);
+            },
+            AST::ASTNode::BinaryExpression(binary_expression) => {
+                self.visit_binary_expression(binary_expression);
+            },
+            AST::ASTNode::LenCall(len_call) => {
+                self.visit_len_call(len_call);
+            },
+            AST::ASTNode::MethodCall(method_call) => {
+                self.visit_method_call(method_call);
+            },
+            AST::ASTNode::IndexExpression(index_expression) => {
+                self.visit_index_expression(index_expression);
+            },
+            AST::ASTNode::Identifier(identifier) => {
+                self.visit_identifier(identifier);
+            },
+            AST::ASTNode::IntConstant(int_constant) => {
+                self.visit_int_constant(int_constant);
+            },
+            AST::ASTNode::BoolConstant(bool_constant) => {
+                self.visit_bool_constant(bool_constant);
+            },
+            AST::ASTNode::CharConstant(char_constant) => {
+                self.visit_char_constant(char_constant);
+            },
+            _ => {
+                self.push_error("Error: invalid expression type found (check grammar).");
+            },
+        }
+    }
 }
 
 impl Visitor for Interpreter {
@@ -123,6 +162,18 @@ impl Visitor for Interpreter {
             self.visit_method_decl(method_decl);
         }
         // Rule 3: The program contains a definition for a method called main that has type void and takes no parameters.
+        if self.global_scope.entries.contains_key("main") {
+            match self.global_scope.entries.get("main").unwrap() {
+                Entry::Method(main_entry) => {
+                    if main_entry.name != "main" || main_entry.return_type != Type::Void || main_entry.param_count != 0 {
+                        self.push_error("Error: The program does not contain a definition for a method called main that has type void and takes no parameters.");
+                    }
+                },
+                _ => self.push_error("Error: The program does not contain a definition for a method called main that has type void and takes no parameters."),
+            }
+        } else {
+            self.push_error("Error: The program does not contain a definition for a method called main that has type void and takes no parameters.");
+        }
     }
 
     fn visit_import_decl(&mut self, import_decl: &AST::ImportDecl) { 
@@ -179,7 +230,61 @@ impl Visitor for Interpreter {
     }
 
     fn visit_block(&mut self, block: &AST::Block) {
-        
+        let parent_scope = self.current_scope.take();
+        if !self.init_method {
+            let block_table = MethodTable {
+                entries: HashMap::new(),
+                method_return_type: parent_scope.as_ref().unwrap().method_return_type.clone(),
+                parent: parent_scope,
+            };
+            self.current_scope = Some(Box::new(block_table));
+        }
+        self.init_method = false;
+
+        for field_decl in &block.fields {
+            self.visit_field_decl(field_decl);
+        }
+
+        for statement in &block.statements {
+            match statement.as_ref() {
+                AST::ASTNode::IfStatement(if_statement) => {
+                    self.visit_if_statement(if_statement);
+                },
+                AST::ASTNode::ForStatement(for_statement) => {
+                    self.visit_for_statement(for_statement);
+                },
+                AST::ASTNode::WhileStatement(while_statement) => {
+                    self.visit_while_statement(while_statement);
+                },
+                AST::ASTNode::ReturnStatement(return_statement) => {
+                    self.visit_return_statement(return_statement);
+                },
+                AST::ASTNode::StatementControl(statement_control) => {
+                    self.visit_statement_control(statement_control);
+                },
+                AST::ASTNode::Assignment(assignment) => {
+                    self.visit_assignment(assignment);
+                },
+                AST::ASTNode::MethodCall(method_call) => {
+                    self.visit_method_call(method_call);
+                },
+                AST::ASTNode::LenCall(len_call) => {
+                    self.visit_len_call(len_call);
+                },
+                AST::ASTNode::UnaryExpression(unary_expression) => {
+                    self.visit_unary_expression(unary_expression);
+                },
+                AST::ASTNode::BinaryExpression(binary_expression) => {
+                    self.visit_binary_expression(binary_expression);
+                },
+                AST::ASTNode::IndexExpression(index_expression) => {
+                    self.visit_index_expression(index_expression);
+                },
+                _ => {
+                    self.push_error("Error: invalid statement type in block.");
+                },
+            }
+        }
     }
 
     fn visit_var_decl(&mut self, var_decl: &AST::VarDecl) {
@@ -262,14 +367,28 @@ impl Visitor for Interpreter {
 
     fn visit_if_statement(&mut self, if_statement: &AST::IfStatement) {
         // Rule 16: The ⟨expr⟩ in an if or while statement must have type bool , as well as the second ⟨expr⟩ of a for statement.   
+        self.visit_expression(if_statement.condition.as_ref());
+        if self.result_expr_type != Type::Bool {
+            self.push_error("Error: The expression in an if statement must have type bool.");
+        }
+        self.visit_block(if_statement.then_block.as_ref());
+        if let Some(else_block) = if_statement.else_block.as_ref() {
+            self.visit_block(else_block);
+        }
     }
 
     fn visit_for_statement(&mut self, for_statement: &AST::ForStatement) {
         // Rule 16: The ⟨expr⟩ in an if or while statement must have type bool , as well as the second ⟨expr⟩ of a for statement.
+        self.visit_assignment(&for_statement.start_assignment);
     }
 
     fn visit_while_statement(&mut self, while_statement: &AST::WhileStatement) {
         // Rule 16: The ⟨expr⟩ in an if or while statement must have type bool , as well as the second ⟨expr⟩ of a for statement.
+        self.visit_expression(&while_statement.condition);
+        if self.result_expr_type != Type::Bool {
+            self.push_error("Error: The expression in a while statement must have type bool.");
+        }
+        self.visit_block(&while_statement.block);
     }
 
     fn visit_return_statement(&mut self, return_statement: &AST::ReturnStatement) {
@@ -293,8 +412,18 @@ impl Visitor for Interpreter {
     }
 
     fn visit_len_call(&mut self, len_call: &AST::LenCall) {
-        // Rule 15: The argument of the len operator must be an array variable.
+        let var_name = len_call.id.name.as_str();
 
+        // Rule 15: The argument of the len operator must be an array variable.
+        match self.find_var(var_name, self.current_scope.clone()) {
+            Ok(id_entry) => {
+                match id_entry {
+                    Entry::Array(_) => (),
+                    _ => self.push_error(&format!("Error: Argument of len operator must be an array variable.")),
+                }
+            },
+            Err(()) => (),
+        }
     }
 
     fn visit_unary_expression(&mut self, unary_expression: &AST::UnaryExpression) {
@@ -415,6 +544,7 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
                 checking_type: false,
                 init_method: false,
                 init_type: Type::None,
+                result_expr_type: Type::None,
             };
             ast.accept(&mut interpreter);
             if interpreter.correct {
@@ -435,11 +565,13 @@ pub fn interpret(input: &std::path::PathBuf, mut writer: Box<dyn std::io::Write>
     match interpret_file(input, debug) {
         Ok(_) => {
             writeln!(writer, "Interpreted successfully.").unwrap();
+            std::process::exit(0);
         }
         Err(errors) => {
             for error in errors {
                 writeln!(writer, "{}", error).unwrap();
             }
+            std::process::exit(1);
         }
     }
 }

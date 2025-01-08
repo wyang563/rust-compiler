@@ -15,7 +15,7 @@ run_tests () {
     for filename in "$1"/illegal/*.dcf; do
         touch tests/tmp.out
         echo "Testing: $filename"
-        timeout $TIMEOUT $INTERPRETER --target parse $filename --output tests/tmp.out
+        timeout $TIMEOUT $INTERPRETER --target inter $filename --output tests/tmp.out
         CODE=$?
         if [ $CODE -ne 1 ]; then
             echo "Fail (illegal): $(basename "$filename")"
@@ -25,13 +25,13 @@ run_tests () {
             COUNT=$((COUNT+1))
         fi
         TOTAL=$((TOTAL+1))
-        rm -f tests/tmp.out
+        # rm -f tests/tmp.out
     done
 
     for filename in "$1"/legal/*.dcf; do
         touch tests/tmp.out
         echo "Testing: $filename"
-        timeout $TIMEOUT $INTERPRETER --target parse $filename --output tests/tmp.out
+        timeout $TIMEOUT $INTERPRETER --target inter $filename --output tests/tmp.out
         CODE=$?
         if [ $CODE -ne 0 ]; then
             echo "Fail (legal): $(basename "$filename")"
@@ -41,7 +41,7 @@ run_tests () {
             COUNT=$((COUNT+1))
         fi
         TOTAL=$((TOTAL+1))
-        rm -f tests/tmp.out
+        # rm -f tests/tmp.out
     done    
 
     echo "Passed $COUNT out of $TOTAL parser tests"
