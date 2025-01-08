@@ -23,6 +23,7 @@ pub struct Interpreter {
     checking_type: bool, // whether we are checking the type of a variable, used during field declarations
     init_method: bool, // whether we are initializing a method, this is so we don't create two scopes when we do visit method_decl and then visit_block
     init_type: Type, // type of varaible being initialized
+    in_loop: bool,
 
     // func result holders
     result_expr_type: Type,
@@ -61,7 +62,9 @@ impl Interpreter {
             if self.current_scope.is_none() {
                 return false;
             }
-            let current_scope = self.current_scope.as_ref().unwrap();
+            let current_scope = self.current_scope
+                                                    .as_ref()
+                                                    .unwrap();
             if current_scope.entries.contains_key(var_name) {
                 self.push_error(&format!("Error: Identifier {} is declared twice in the same scope.", var_name));
                 return true;
@@ -74,7 +77,9 @@ impl Interpreter {
         if self.current_scope.is_none() {
             self.global_scope.entries.insert(var_name.to_string(), entry);
         } else {
-            let current_scope = self.current_scope.as_mut().unwrap();
+            let current_scope = self.current_scope
+                                                        .as_mut()
+                                                        .unwrap();
             current_scope.entries.insert(var_name.to_string(), entry);
         }
     }
@@ -148,6 +153,20 @@ impl Interpreter {
             },
         }
     }
+
+    fn visit_location(&mut self, location: &AST::ASTNode) {
+        match location {
+            AST::ASTNode::Identifier(identifier) => {
+                self.visit_identifier(identifier);
+            },
+            AST::ASTNode::IndexExpression(index_expression) => {
+                self.visit_index_expression(index_expression);
+            },
+            _ => {
+                self.push_error("Error: invalid location type found (check grammar).");
+            },
+        }
+    }
 }
 
 impl Visitor for Interpreter {
@@ -177,7 +196,9 @@ impl Visitor for Interpreter {
     }
 
     fn visit_import_decl(&mut self, import_decl: &AST::ImportDecl) { 
-        let import_id = import_decl.import_id.name.clone();
+        let import_id = import_decl.import_id
+                                        .name
+                                        .clone();
         // Rule 1: No identifier is declared twice in the same scope
         if self.check_declared(import_id.as_str()) {
             return;
@@ -203,7 +224,9 @@ impl Visitor for Interpreter {
         self.visit_identifier(&method_decl.name);
 
         let method_type = self.string_to_type(method_decl.type_name.as_str());
-        let method_name_str = method_decl.name.name.as_str();
+        let method_name_str = method_decl.name
+                                            .name
+                                            .as_str();
 
         // write function to global scope
         self.write_to_table(method_decl.name.name.as_str(), Entry::Method( MethodEntry {
@@ -234,7 +257,10 @@ impl Visitor for Interpreter {
         if !self.init_method {
             let block_table = MethodTable {
                 entries: HashMap::new(),
-                method_return_type: parent_scope.as_ref().unwrap().method_return_type.clone(),
+                method_return_type: parent_scope.as_ref()
+                                                .unwrap()
+                                                .method_return_type
+                                                .clone(),
                 parent: parent_scope,
             };
             self.current_scope = Some(Box::new(block_table));
@@ -289,7 +315,10 @@ impl Visitor for Interpreter {
 
     fn visit_var_decl(&mut self, var_decl: &AST::VarDecl) {
         self.init_type = self.string_to_type(var_decl.type_name.as_str());
-        let var_name = var_decl.name.as_ref().name.as_str();
+        let var_name = var_decl.name
+                                    .as_ref()
+                                    .name
+                                    .as_str();
 
         // Rule 1: No identifier is declared twice in the same scope
         self.visit_identifier(var_decl.name.as_ref());
@@ -309,7 +338,10 @@ impl Visitor for Interpreter {
                 }
                 // Rule 5: Array initializers have either a declared length or an initializer list, but not both.
                 // TODO: check if it's supposed to be .as_ref().as_ref() or only one .as_ref()
-                if var_decl.initializer.as_ref().as_ref().is_some() {
+                if var_decl.initializer
+                        .as_ref()
+                        .as_ref()
+                        .is_some() {
                     self.push_error(&format!("Error: Array initializers have either a declared length or an initializer list, but not both."));
                 }
             } else {
@@ -318,7 +350,10 @@ impl Visitor for Interpreter {
                     self.push_error(&format!("Error: Array initializers have either a declared length or an initializer list, but not both."));
                 }
 
-                match var_decl.initializer.as_ref().as_ref().unwrap() {
+                match var_decl.initializer
+                            .as_ref()
+                            .as_ref()
+                            .unwrap() {
                     AST::ASTNode::ArrayLiteral(array_literal) => {
                         self.visit_array_literal(array_literal);
                     },
@@ -343,7 +378,10 @@ impl Visitor for Interpreter {
         
         else {
             if var_decl.initializer.as_ref().as_ref().is_some() {
-                self.visit_literal(var_decl.initializer.as_ref().as_ref().unwrap());
+                self.visit_literal(var_decl.initializer
+                                        .as_ref()
+                                        .as_ref()
+                                        .unwrap());
             }
             self.write_to_table(var_name, Entry::Var( VarEntry {
                 name: var_name.to_string(),
@@ -354,7 +392,10 @@ impl Visitor for Interpreter {
     }
 
     fn visit_method_arg_decl(&mut self, method_arg_decl: &AST::MethodArgDecl) {
-        let arg_name = method_arg_decl.name.as_ref().name.as_str();
+        let arg_name = method_arg_decl.name.as_ref()
+                                                .name
+                                                .as_str();
+
         let arg_type = self.string_to_type(method_arg_decl.type_name.as_str());
         // Rule 1: No identifier is declared twice in the same scope
         self.visit_identifier(method_arg_decl.name.as_ref());
@@ -378,8 +419,20 @@ impl Visitor for Interpreter {
     }
 
     fn visit_for_statement(&mut self, for_statement: &AST::ForStatement) {
+        let incr_var = for_statement.start_assignment.assign_var.as_ref();
+        // Rule the incr variable must be an int
+        self.visit_location(incr_var);
+        if self.result_expr_type != Type::Int {
+            self.push_error("Error: The increment variable in a for statement must have type int.");
+        }
         // Rule 16: The ⟨expr⟩ in an if or while statement must have type bool , as well as the second ⟨expr⟩ of a for statement.
-        self.visit_assignment(&for_statement.start_assignment);
+        self.visit_expression(&for_statement.end_expr);
+        if self.result_expr_type != Type::Bool {
+            self.push_error("Error: The ending condition expression in a for statement must have type bool.");
+        }
+        self.in_loop = true;
+        self.visit_block(for_statement.block.as_ref());
+        self.in_loop = false;
     }
 
     fn visit_while_statement(&mut self, while_statement: &AST::WhileStatement) {
@@ -388,16 +441,47 @@ impl Visitor for Interpreter {
         if self.result_expr_type != Type::Bool {
             self.push_error("Error: The expression in a while statement must have type bool.");
         }
+        self.in_loop = true;
         self.visit_block(&while_statement.block);
+        self.in_loop = false;
     }
 
     fn visit_return_statement(&mut self, return_statement: &AST::ReturnStatement) {
         // Rule 10: A return statement must not have a return value unless it appears in the body of a method that is declared to return a value
-        // Rule 11: The expression in a return statement must have the same type as the declared result type of the enclosing method definition.
+        if self.current_scope.is_none() {
+            self.push_error("Error: A return statement must not appear in a method body definition, not the global scope.");
+        }
+        let method_return_type = self.current_scope
+                                .as_ref()
+                                .unwrap()
+                                .method_return_type
+                                .clone();
+
+        if method_return_type == Type::Void {
+            if return_statement.expr.is_some() {
+                self.push_error("Error: A return statement must not have a return value unless it appears in the body of a method that is declared to return a value.");
+            }
+        } else {
+            if return_statement.expr.is_none() {
+                self.push_error("Error: A return statement must have a return expression in the body of a method that is declared to return a value.");
+            } else {
+                self.visit_expression(return_statement.expr
+                                                    .as_ref()
+                                                    .as_ref()
+                                                    .unwrap());
+                // Rule 11: The expression in a return statement must have the same type as the declared result type of the enclosing method definition.
+                if self.result_expr_type != method_return_type {
+                    self.push_error(&format!("Error: The expression in a return statement must have the same type as the declared result type of the enclosing method definition."));
+                }
+            }
+        }        
     }
 
     fn visit_statement_control(&mut self, statement_control: &AST::StatementControl) {
         // Rule 24: All break and continue statements must be contained within the body of a for or a while statement.
+        if !self.in_loop {
+            self.push_error("Error: All break and continue statements must be contained within the body of a for or a while statement.");
+        }
     }
 
     fn visit_assignment(&mut self, assignment: &AST::Assignment) {
@@ -544,6 +628,7 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
                 checking_type: false,
                 init_method: false,
                 init_type: Type::None,
+                in_loop: false,
                 result_expr_type: Type::None,
             };
             ast.accept(&mut interpreter);
