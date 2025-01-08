@@ -20,12 +20,15 @@ impl Entry {
 }
 
 #[derive(Clone)]
+#[derive(PartialEq)]
+#[derive(Debug)]
 pub enum Type {
     Void,
     Int,
     Bool,
     IntArray,
     BoolArray,
+    None, // default value for error propogation
 }
 
 #[derive(Clone)]
@@ -40,8 +43,6 @@ pub struct ArrayEntry {
     pub name: String,
     pub var_type: Type,
     pub is_const: bool,
-    pub var_length: u32,
-    pub var_elements: Vec<MethodEntry>,
 }
 
 #[derive(Clone)]
@@ -49,7 +50,6 @@ pub struct MethodEntry {
     pub name: String,
     pub return_type: Type,
     pub is_const: bool,
-    pub scope: MethodTable,
     pub param_list: Vec<VarEntry>,
     pub param_count: u32,
 }
@@ -68,7 +68,7 @@ pub struct GlobalTable {
 
 #[derive(Clone)]
 pub struct MethodTable {
-    pub parent: Box<Option<MethodTable>>,
+    pub parent: Option<Box<MethodTable>>,
     pub method_return_type: Type,
     pub entries: HashMap<String, Entry>,
 }

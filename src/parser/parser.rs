@@ -452,15 +452,15 @@ fn parse_assign_expression(parser_state: &mut ParserState) -> Result<AST::Assign
     }
 }
 
-fn parse_if_statement(parser_state: &mut ParserState) -> Result<AST::IfStatement, String> {
+fn parse_if_statement(parser_state: &mut ParserState, func_type: &str) -> Result<AST::IfStatement, String> {
     parser_state.check_token("if", true)?;
     parser_state.check_token("(", true)?;
     let condition_expr = parse_expression(parser_state)?;
     parser_state.check_token(")", true)?;
-    let then_block = parse_block(parser_state)?;
+    let then_block = parse_block(parser_state, func_type)?;
     let mut else_block: Option<AST::Block> = None;
     if parser_state.check_token("else", true) == Ok(()) {
-        else_block = Some(parse_block(parser_state)?);
+        else_block = Some(parse_block(parser_state, func_type)?);
     }
     return Ok(AST::IfStatement {
         condition: Box::new(condition_expr),
@@ -469,7 +469,7 @@ fn parse_if_statement(parser_state: &mut ParserState) -> Result<AST::IfStatement
     });
 }
 
-fn parse_for_statement(parser_state: &mut ParserState) -> Result<AST::ForStatement, String> {
+fn parse_for_statement(parser_state: &mut ParserState, func_type: &str) -> Result<AST::ForStatement, String> {
     parser_state.check_token("for", true)?;
     parser_state.check_token("(", true)?;
     let increment_var = parse_identifier(parser_state, 2)?;
@@ -503,7 +503,7 @@ fn parse_for_statement(parser_state: &mut ParserState) -> Result<AST::ForStateme
 
     // parse block
     parser_state.check_token(")", true)?;
-    let block = parse_block(parser_state)?;
+    let block = parse_block(parser_state, func_type)?;
 
     return Ok(AST::ForStatement {
         start_assignment: Box::new(start_assignment),
@@ -513,21 +513,22 @@ fn parse_for_statement(parser_state: &mut ParserState) -> Result<AST::ForStateme
     });
 }
 
-fn parse_while_statement(parser_state: &mut ParserState) -> Result<AST::WhileStatement, String> {
+fn parse_while_statement(parser_state: &mut ParserState, func_type: &str) -> Result<AST::WhileStatement, String> {
     parser_state.check_token("while", true)?;
     parser_state.check_token("(", true)?;
     let condition_expr = parse_expression(parser_state)?;
     parser_state.check_token(")", true)?;
-    let block = parse_block(parser_state)?;
+    let block = parse_block(parser_state, func_type)?;
     return Ok(AST::WhileStatement {
         condition: Box::new(condition_expr),
         block: Box::new(block),
     });
 }
 
-fn parse_return_statement(parser_state: &mut ParserState) -> Result<AST::ReturnStatement, String> {
+fn parse_return_statement(parser_state: &mut ParserState, func_type: &str) -> Result<AST::ReturnStatement, String> {
     parser_state.check_token("return", true)?;
     let mut return_statement_res= AST::ReturnStatement {
+        func_type: func_type.to_string(),
         expr: Box::new(None)
     };
     if parser_state.cur_token().token_value != ";" {
@@ -553,19 +554,19 @@ fn parse_continue_statement(parser_state: &mut ParserState) -> Result<AST::State
     });
 }
 
-fn parse_statement(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
+fn parse_statement(parser_state: &mut ParserState, func_type: &str) -> Result<AST::ASTNode, String> {
     match parser_state.cur_token().token_value.as_str() {
         "if" => {
-            return Ok(AST::ASTNode::IfStatement(parse_if_statement(parser_state)?));
+            return Ok(AST::ASTNode::IfStatement(parse_if_statement(parser_state, func_type)?));
         },
         "for" => {
-            return Ok(AST::ASTNode::ForStatement(parse_for_statement(parser_state)?));
+            return Ok(AST::ASTNode::ForStatement(parse_for_statement(parser_state, func_type)?));
         },
         "while" => {
-            return Ok(AST::ASTNode::WhileStatement(parse_while_statement(parser_state)?));
+            return Ok(AST::ASTNode::WhileStatement(parse_while_statement(parser_state, func_type)?));
         },
         "return" => {
-            return Ok(AST::ASTNode::ReturnStatement(parse_return_statement(parser_state)?));
+            return Ok(AST::ASTNode::ReturnStatement(parse_return_statement(parser_state, func_type)?));
         },
         "break" => {
             return Ok(AST::ASTNode::StatementControl(parse_break_statement(parser_state)?));
@@ -594,7 +595,7 @@ fn parse_statement(parser_state: &mut ParserState) -> Result<AST::ASTNode, Strin
     }
 }
 
-fn parse_block(parser_state: &mut ParserState) -> Result<AST::Block, String> {
+fn parse_block(parser_state: &mut ParserState, func_type: &str) -> Result<AST::Block, String> {
     parser_state.check_token("{", true)?;
     let mut block = AST::Block {
         fields: vec![],
@@ -607,7 +608,7 @@ fn parse_block(parser_state: &mut ParserState) -> Result<AST::Block, String> {
     }
     // consume statements
     while parser_state.cur_token().token_value != "}" {
-        let statement = parse_statement(parser_state)?;
+        let statement = parse_statement(parser_state, func_type)?;
         block.statements.push(Box::new(statement));
     }
     parser_state.check_token("}", true)?;
@@ -707,7 +708,7 @@ fn parse_method_decl(parser_state: &mut ParserState) -> Result<AST::MethodDecl, 
         }
     }
     parser_state.check_token(")", true)?;
-    let method_block = parse_block(parser_state)?;
+    let method_block = parse_block(parser_state, method_type.as_str())?;
     return Ok(AST::MethodDecl {
         type_name: method_type,
         name: method_name,

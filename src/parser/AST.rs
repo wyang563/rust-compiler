@@ -169,6 +169,7 @@ impl WhileStatement {
 }
 
 pub struct ReturnStatement {
+    pub func_type: String, // either void or type name
     pub expr: Box<Option<ASTNode>>, // any expression type specified by the grammar
 }
 
