@@ -17,6 +17,15 @@ impl Entry {
             Entry::Import(i) => i.is_const,
         }
     }
+
+    pub fn get_type(&self) -> Type {
+        match self {
+            Entry::Var(v) => v.var_type.clone(),
+            Entry::Array(a) => a.var_type.clone(),
+            Entry::Method(m) => m.return_type.clone(),
+            Entry::Import(_) => Type::Int,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -51,7 +60,7 @@ pub struct MethodEntry {
     pub return_type: Type,
     pub is_const: bool,
     pub param_list: Vec<VarEntry>,
-    pub param_count: u32,
+    pub param_count: usize,
 }
 
 #[derive(Clone)]
