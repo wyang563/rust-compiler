@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub enum Entry {
     Var(VarEntry),
     Array(ArrayEntry),
@@ -41,6 +42,7 @@ pub enum Type {
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct VarEntry {
     pub name: String,
     pub var_type: Type,
@@ -48,6 +50,7 @@ pub struct VarEntry {
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct ArrayEntry {
     pub name: String,
     pub var_type: Type,
@@ -55,6 +58,7 @@ pub struct ArrayEntry {
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct MethodEntry {
     pub name: String,
     pub return_type: Type,
@@ -64,6 +68,7 @@ pub struct MethodEntry {
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct ImportEntry {
     pub name: String,
     pub is_const: bool,
