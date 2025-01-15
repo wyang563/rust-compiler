@@ -82,7 +82,6 @@ pub struct GlobalTable {
 
 #[derive(Clone)]
 pub struct MethodTable {
-    pub parent: Option<Box<MethodTable>>,
     pub method_return_type: Type,
     pub entries: HashMap<String, Entry>,
 }

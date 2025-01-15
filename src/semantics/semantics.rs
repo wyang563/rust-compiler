@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 pub struct Interpreter {
     global_scope: GlobalTable,
-    current_scope: Option<Box<MethodTable>>,
+    scopes: Vec<Box<MethodTable>>,
     errors: Vec<String>,
     correct: bool,
 
@@ -33,40 +33,33 @@ pub struct Interpreter {
 
 impl Interpreter {
     // find whether variable has been declared
-    fn find_var(&mut self, var_name: &str, scope: Option<&MethodTable>) -> Result<Entry, ()> {
+    fn find_var(&mut self, var_name: &str) -> Result<Entry, ()> {
         // Rule 2: No identifier is used before it is declared
         // Rule 12: An ⟨id⟩ used as a ⟨location⟩ must name a declared local/global variable or parameter.
-        if scope.is_none() {
-            if self.global_scope.entries.contains_key(var_name) {
-                return Ok(self.global_scope.entries[var_name].clone());
-            }
-            self.push_error(&format!("Error: Identifier {} is used before it is declared.", var_name));
-            return Err(());
 
-        } else {
-            let current_scope = scope.unwrap();
-            if current_scope.entries.contains_key(var_name) {
-                return Ok(current_scope.entries[var_name].clone());
+        // loop through scopes in reverse and check for value
+        for scope in self.scopes.iter().rev() {
+            if scope.entries.contains_key(var_name) {
+                return Ok(scope.entries[var_name].clone());
             }
-            let parent = current_scope.parent.as_deref();
-            return self.find_var(var_name, parent);
         }
+
+        if self.global_scope.entries.contains_key(var_name) {
+            return Ok(self.global_scope.entries[var_name].clone());
+        }
+        self.push_error(&format!("Error: Identifier {} is used before it is declared.", var_name));
+        return Err(());
     }
 
     fn check_declared(&mut self, var_name: &str) -> bool {
         // Rule 1: No identifier is declared twice in the same scope
-        if self.current_scope.is_none() {
+        if self.scopes.len() == 0 {
             if self.global_scope.entries.contains_key(var_name) {
                 self.push_error(&format!("Error: Identifier {} is declared twice in the same scope.", var_name));
                 return true;
             }
         } else {
-            if self.current_scope.is_none() {
-                return false;
-            }
-            let current_scope = self.current_scope
-                                                    .as_ref()
-                                                    .unwrap();
+            let current_scope = self.scopes[self.scopes.len() - 1].as_ref();
             if current_scope.entries.contains_key(var_name) {
                 self.push_error(&format!("Error: Identifier {} is declared twice in the same scope.", var_name));
                 return true;
@@ -76,13 +69,13 @@ impl Interpreter {
     }
 
     fn write_to_table(&mut self, var_name: &str, entry: Entry) {
-        if self.current_scope.is_none() {
-            self.global_scope.entries.insert(var_name.to_string(), entry);
+        if self.scopes.len() == 0 {
+            self.global_scope.entries
+                            .insert(var_name.to_string(), entry);
         } else {
-            let current_scope = self.current_scope
-                                                        .as_mut()
-                                                        .unwrap();
-            current_scope.entries.insert(var_name.to_string(), entry);
+            let scopes_len = self.scopes.len();
+            self.scopes[scopes_len - 1].entries
+                                    .insert(var_name.to_string(), entry);
         }
     }
 
@@ -190,15 +183,13 @@ impl Interpreter {
     // debugging helpers
     #[allow(dead_code)]
     fn print_scope(&mut self) {
-        if self.current_scope.is_none() {
+        if self.scopes.len() == 0 {
             println!("Global Scope:");
             for (key, value) in &self.global_scope.entries {
                 println!("{}: {:?}", key, value);
             }
         } else {
-            let current_scope = self.current_scope
-                                        .as_ref()
-                                        .unwrap();
+            let current_scope = self.scopes[self.scopes.len() - 1].as_ref();
             println!("Current Scope:");
             for (key, value) in &current_scope.entries {
                 println!("{}: {:?}", key, value);
@@ -284,11 +275,11 @@ impl Visitor for Interpreter {
         let method_table = MethodTable {
             entries: HashMap::new(),
             method_return_type: method_type.clone(),
-            parent: self.current_scope.take(),
         };
         println!("Creating new scope - method - before scope");
         self.print_scope();
-        self.current_scope = Some(Box::new(method_table));
+        self.scopes.push(Box::new(method_table));
+
         println!("Creating new scope - method - after scope");
         self.print_scope();
         // add method args to scope
@@ -299,19 +290,14 @@ impl Visitor for Interpreter {
     }
 
     fn visit_block(&mut self, block: &AST::Block) {
-        let parent_scope = self.current_scope.clone();
         if !self.init_method {
             println!("Creating new scope - before scope");
             self.print_scope();
             let block_table = MethodTable {
                 entries: HashMap::new(),
-                method_return_type: parent_scope.as_ref()
-                                                .unwrap()
-                                                .method_return_type
-                                                .clone(),
-                parent: parent_scope,
+                method_return_type: self.scopes[0].method_return_type.clone(),
             };
-            self.current_scope = Some(Box::new(block_table));
+            self.scopes.push(Box::new(block_table));
             println!("Creating new scope - after scope");
             self.print_scope();
         }
@@ -364,17 +350,7 @@ impl Visitor for Interpreter {
         // exit out of lowest scope
         println!("Before popping scope");
         self.print_scope();
-        if self.current_scope.is_some() && self.current_scope
-                                            .as_ref()
-                                            .unwrap()
-                                            .parent
-                                            .is_some() {
-            self.current_scope = self.current_scope
-                                    .as_ref()
-                                    .unwrap()
-                                    .parent
-                                    .clone();
-        }
+        self.scopes.pop();
         println!("After popping scope");
         self.print_scope();
     }
@@ -511,14 +487,10 @@ impl Visitor for Interpreter {
     fn visit_return_statement(&mut self, return_statement: &AST::ReturnStatement) {
         
         // Rule 10: A return statement must not have a return value unless it appears in the body of a method that is declared to return a value
-        if self.current_scope.is_none() {
+        if self.scopes.len() == 0 {
             self.push_error("Error: A return statement must appear in a method body definition, not the global scope.");
         }
-        let method_return_type = self.current_scope
-                                .as_ref()
-                                .unwrap()
-                                .method_return_type
-                                .clone();
+        let method_return_type = self.scopes[0].method_return_type.clone();
 
         if method_return_type == Type::Void {
             if return_statement.expr.is_some() {
@@ -582,8 +554,7 @@ impl Visitor for Interpreter {
     fn visit_method_call(&mut self, method_call: &AST::MethodCall) {
         // Rule 13: The ⟨id⟩ in a method statement must be a declared method or import.
         let method_name = method_call.name.name.as_str();
-        let cur_scope = self.current_scope.clone();
-        match self.find_var(method_name, cur_scope.as_deref()) {
+        match self.find_var(method_name) {
             Ok(result_entry) => {
                 match result_entry {
                     Entry::Method(method_entry) => { 
@@ -632,8 +603,7 @@ impl Visitor for Interpreter {
     fn visit_len_call(&mut self, len_call: &AST::LenCall) {
         let var_name = len_call.id.name.as_str();
         // Rule 15: The argument of the len operator must be an array variable.
-        let cur_scope = self.current_scope.clone();
-        match self.find_var(var_name, cur_scope.as_deref()) {
+        match self.find_var(var_name) {
             Ok(id_entry) => {
                 match id_entry {
                     Entry::Array(_) => (),
@@ -711,8 +681,7 @@ impl Visitor for Interpreter {
 
     fn visit_index_expression(&mut self, index_expression: &AST::IndexExpression) {
         // Rule 14: For all locations of the form ⟨id⟩[⟨expr⟩], the ⟨id⟩ must be an array variable and the type of ⟨expr⟩ must be int.
-        let cur_scope = self.current_scope.clone();
-        if let Ok(array_entry) = self.find_var(index_expression.id.name.as_str(), cur_scope.as_deref()) {
+        if let Ok(array_entry) = self.find_var(index_expression.id.name.as_str()) {
             match array_entry {
                 Entry::Array(_) => {
                     self.visit_expression(index_expression.idx_expr.as_ref());
@@ -749,8 +718,7 @@ impl Visitor for Interpreter {
             // read variable
             1 => {
                 // Rule 2: No identifier is used before it is declared
-                let cur_scope = self.current_scope.clone();
-                match self.find_var(id_name, cur_scope.as_deref()) {
+                match self.find_var(id_name) {
                     Ok(id_entry) => {
                         self.result_expr_type = id_entry.get_type();
                     },
@@ -762,8 +730,7 @@ impl Visitor for Interpreter {
             // write variable
             2 => {
                 // Rule 2: No identifier is used before it is declared
-                let cur_scope = self.current_scope.clone();
-                match self.find_var(id_name, cur_scope.as_deref()) {
+                match self.find_var(id_name) {
                     Ok(id_entry) => {
                         // Rule 23: const locations may not be assigned to
                         if id_entry.get_is_const() {
@@ -846,7 +813,7 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
                 global_scope: GlobalTable {
                     entries: HashMap::new(),
                 },
-                current_scope: None,
+                scopes: vec![],
                 errors: vec![],
                 correct: true,
                 checking_type: false,
