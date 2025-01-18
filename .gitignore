@@ -19,3 +19,8 @@ Cargo.lock
 # Test Cases
 private-tests-main/
 public-tests-main/
+out.txt
+out_unit.txt
+
+# Text files 
+*.txt

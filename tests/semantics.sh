@@ -44,7 +44,7 @@ run_tests () {
         # rm -f tests/tmp.out
     done    
 
-    echo "Passed $COUNT out of $TOTAL parser tests"
+    echo "Passed $COUNT out of $TOTAL semantics tests"
 }
 
 if [[ $1 == "public" ]]; then

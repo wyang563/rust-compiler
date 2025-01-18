@@ -26,9 +26,13 @@ pub struct Interpreter {
     init_type: Type, // type of varaible being initialized
     in_loop: u32, // we use ints here instead of bool flags since if we have layered loops or expressions we don't want to set this to false once we finish an inner loop/expression
     in_expr: u32,
+    in_location: bool,
 
     // func result holders
     result_expr_type: Type,
+
+    // debug mode
+    debug: bool,
 }
 
 impl Interpreter {
@@ -157,6 +161,9 @@ impl Interpreter {
             AST::ASTNode::CharConstant(char_constant) => {
                 self.visit_char_constant(char_constant);
             },
+            AST::ASTNode::StringConstant(str_constant) => {
+                self.visit_string_constant(str_constant);
+            }
             _ => {
                 self.push_error("Error: invalid expression type found (check grammar).");
             },
@@ -166,11 +173,15 @@ impl Interpreter {
     }
 
     fn visit_location(&mut self, location: &AST::ASTNode) {
+        self.in_location = true;
         match location {
             AST::ASTNode::Identifier(identifier) => {
+                // Rule 10: An <id> used as a <location> must name a declared local/global variable or formal parameter.
                 self.visit_identifier(identifier);
             },
             AST::ASTNode::IndexExpression(index_expression) => {
+                // Rule 10: An <id> used as a <location> must name a declared local/global variable or formal parameter.
+
                 self.visit_index_expression(index_expression);
             },
             _ => {
@@ -178,6 +189,7 @@ impl Interpreter {
                 self.result_expr_type = Type::None;
             },
         }
+        self.in_location = false;
     }
 
     // debugging helpers
@@ -276,12 +288,9 @@ impl Visitor for Interpreter {
             entries: HashMap::new(),
             method_return_type: method_type.clone(),
         };
-        println!("Creating new scope - method - before scope");
-        self.print_scope();
+
         self.scopes.push(Box::new(method_table));
 
-        println!("Creating new scope - method - after scope");
-        self.print_scope();
         // add method args to scope
         for arg in &method_decl.args {
             self.visit_method_arg_decl(arg.as_ref());
@@ -291,15 +300,11 @@ impl Visitor for Interpreter {
 
     fn visit_block(&mut self, block: &AST::Block) {
         if !self.init_method {
-            println!("Creating new scope - before scope");
-            self.print_scope();
             let block_table = MethodTable {
                 entries: HashMap::new(),
                 method_return_type: self.scopes[0].method_return_type.clone(),
             };
             self.scopes.push(Box::new(block_table));
-            println!("Creating new scope - after scope");
-            self.print_scope();
         }
         self.init_method = false;
 
@@ -348,11 +353,7 @@ impl Visitor for Interpreter {
             }
         }
         // exit out of lowest scope
-        println!("Before popping scope");
-        self.print_scope();
         self.scopes.pop();
-        println!("After popping scope");
-        self.print_scope();
     }
 
     fn visit_var_decl(&mut self, var_decl: &AST::VarDecl) {
@@ -463,11 +464,25 @@ impl Visitor for Interpreter {
         if self.result_expr_type != Type::Int {
             self.push_error("Error: The increment variable in a for statement must have type int.");
         }
+        // Visit initial incr var assignment to check validity
+        self.visit_assignment(&for_statement.start_assignment);
+
         // Rule 16: The ⟨expr⟩ in an if or while statement must have type bool , as well as the second ⟨expr⟩ of a for statement.
         self.visit_expression(&for_statement.end_expr);
         if self.result_expr_type != Type::Bool {
             self.push_error("Error: The ending condition expression in a for statement must have type bool.");
         }
+        // Visit update expression to check validity
+        match for_statement.update_expr.as_ref() {
+            AST::ASTNode::MethodCall(method_call) => {
+                self.visit_method_call(method_call);
+            },
+            AST::ASTNode::Assignment(assignment) => {
+                self.visit_assignment(assignment);
+            },
+            _ => self.push_error("Error: invalid update expression in for statement."),
+        }
+
         self.in_loop += 1;
         self.visit_block(for_statement.block.as_ref());
         self.in_loop -= 1;
@@ -558,8 +573,6 @@ impl Visitor for Interpreter {
             Ok(result_entry) => {
                 match result_entry {
                     Entry::Method(method_entry) => { 
-                        self.result_expr_type = method_entry.return_type;
-
                         // Rule 8: If a method call is used as an expression, the method must return a result.
                         if self.in_expr > 0 {
                             if self.result_expr_type == Type::Void {
@@ -568,7 +581,8 @@ impl Visitor for Interpreter {
                         }
                         // Rule 7: The number and types of parameters in a method call (non-import) must be the same as the number and types of the declared parameters for the method.
                         if method_entry.param_count != method_call.args.len() {
-                            self.push_error(&format!("Error: Expected method call to have same number of parameters as {}", method_name));
+                            self.push_error(&format!("Error: Method call to {} has incorrect number of parameters as: expected {} but got {}", method_name, method_entry.param_count, method_call.args.len()));
+                            return;
                         }
                         
                         // Rule 7: The number and types of parameters in a method call (non-import) must be the same as the number and types of the declared parameters for the method.
@@ -583,6 +597,8 @@ impl Visitor for Interpreter {
                                 self.push_error(&format!("Error: Array variables may not be used as parameters to non-import methods."));
                             } 
                         }
+                        self.result_expr_type = method_entry.return_type;
+
                     },
                     Entry::Import(_) => {
                         for arg_expr in method_call.args.iter() {
@@ -597,7 +613,7 @@ impl Visitor for Interpreter {
                 self.result_expr_type = Type::None;
                 return;
             },
-        }        
+        } 
     }
 
     fn visit_len_call(&mut self, len_call: &AST::LenCall) {
@@ -612,6 +628,7 @@ impl Visitor for Interpreter {
             },
             Err(()) => (),
         }
+        self.result_expr_type = Type::Int;
     }
 
     fn visit_unary_expression(&mut self, unary_expression: &AST::UnaryExpression) {
@@ -684,6 +701,7 @@ impl Visitor for Interpreter {
         if let Ok(array_entry) = self.find_var(index_expression.id.name.as_str()) {
             match array_entry {
                 Entry::Array(_) => {
+                    self.visit_identifier(index_expression.id.as_ref());
                     self.visit_expression(index_expression.idx_expr.as_ref());
                     if self.result_expr_type != Type::Int {
                         self.push_error(&format!("Error: Index expression for array access to {} must have type int.", index_expression.id.name.as_str()));
@@ -737,6 +755,18 @@ impl Visitor for Interpreter {
                             self.push_error(&format!("Error: Identifier {} is a const location and may not be assigned to.", id_name));
                         }
                         self.result_expr_type = id_entry.get_type();
+                        // Rule 10: An <id> used as a <location> must name a declared local/global variable or formal parameter.
+                        if self.in_location {
+                            match id_entry {
+                                Entry::Method(_) => {
+                                    self.push_error(&format!("Error: Id {} used as a location must have a declared local/global variable or formal parameter", id_name));
+                                },
+                                Entry::Import(_) => {
+                                    self.push_error(&format!("Error: Id {} used as a location must have a declared local/global variable or formal parameter", id_name));
+                                },
+                                _ => (),
+                            }
+                        }
                     },
                     Err(()) => {
                         self.result_expr_type = Type::None;
@@ -752,17 +782,26 @@ impl Visitor for Interpreter {
 
     fn visit_int_constant(&mut self, int_constant: &AST::IntConstant) {
         // Rule 25: All integer literals must be in the 64 bit integer range: −9223372036854775808 ≤ x ≤ 9223372036854775807
-
         // hex numbers
         if int_constant.value.contains("x") {
-            match i64::from_str_radix(&int_constant.value[2..], 16) {
+            let int_constant_str: String;
+            if int_constant.is_neg {
+                int_constant_str = format!("-{}", &int_constant.value[2..]);
+            } else {
+                int_constant_str = int_constant.value[2..].to_string();
+            }
+            match i64::from_str_radix(int_constant_str.as_str(), 16) {
                 Ok(_) => (),
                 Err(_) => {
                     self.push_error(&format!("Error: Integer literal {} is out of 64 bit range.", int_constant.value));
                 }
             }
         } else {
-            match int_constant.value.parse::<i64>() {
+            let mut int_constant_str = int_constant.value.clone();
+            if int_constant.is_neg {
+                int_constant_str = format!("-{}", int_constant_str);
+            }
+            match int_constant_str.as_str().parse::<i64>() {
                 Ok(_) => (),
                 Err(_) => {
                     self.push_error(&format!("Error: Integer literal {} is out of 64 bit range.", int_constant.value));
@@ -821,7 +860,9 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
                 init_type: Type::None,
                 in_loop: 0,
                 in_expr: 0,
+                in_location: false,
                 result_expr_type: Type::None,
+                debug: debug,
             };
             ast.accept(&mut interpreter);
             if interpreter.correct {

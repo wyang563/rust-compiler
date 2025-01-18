@@ -294,11 +294,20 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
         },
         "-" => {
             parser_state.consume();
-            let expr = parse_stand_alone_expr(parser_state)?;
-            return Ok(AST::ASTNode::UnaryExpression(AST::UnaryExpression {
-                op: "-".to_string(),
-                expr: Box::new(expr),
-            }))
+            
+            // try to parse expression as integer literal
+            match parse_int_literal(parser_state, true) {
+                Ok(int_literal) => {
+                    return Ok(AST::ASTNode::IntConstant(int_literal));
+                },
+                Err(_) => {
+                    let expr = parse_stand_alone_expr(parser_state)?;
+                    return Ok(AST::ASTNode::UnaryExpression(AST::UnaryExpression {
+                        op: "-".to_string(),
+                        expr: Box::new(expr),
+                    }))
+                }
+            }
         },
         "!" => {
             parser_state.consume();

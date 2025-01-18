@@ -296,6 +296,7 @@ impl Identifier {
 /*
 Stores both decimal and hex numbers
 */
+#[derive(Debug)]
 pub struct IntConstant {
     pub is_neg: bool,
     pub value: String,
