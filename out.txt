@@ -1,19 +1,15 @@
-int A[10];
-
-void bar() {
-  for (i = 0; i < 10; i = 999) {
-    A[i] = i;
-  }
-  for (i = 0; i < 10; i *= 2) {
-  }
-  for (i = 0; i < 10; i /= 5) {
-  }
-  for (i = 0; i < 10; i %= 5) {
-  }
-}
-
+IntConstant { is_neg: true, value: "9223372036854775808" }
+IntConstant { is_neg: false, value: "9223372036854775807" }
+IntConstant { is_neg: false, value: "9223372036854775808" }
+IntConstant { is_neg: false, value: "9223372036854775807" }
+int x = a;
+int y = -9223372036854775808;
+int z = 9223372036854775807;
 
 void main() {
-  bar();
+  int a, b;
+  a = -9223372036854775808;
+  b = 9223372036854775807;
 }
 
+Exit code: 0
