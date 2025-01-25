@@ -2,6 +2,8 @@ mod utils;
 mod scanner;
 mod parser;
 mod semantics;
+mod cfg;
+mod assembler;
 
 fn get_writer(output: &Option<std::path::PathBuf>) -> Box<dyn std::io::Write> {
     match output {
@@ -37,7 +39,7 @@ fn main() {
             semantics::semantics::interpret(&args.input, writer, args.debug);
         }
         utils::cli::CompilerAction::Assembly => {
-            todo!("assembly");
+            assembler::assembler::assemble(&args.input, writer, args.debug);
         }
     }
 }

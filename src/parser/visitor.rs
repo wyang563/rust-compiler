@@ -26,6 +26,11 @@ pub trait Visitor {
     fn visit_bool_constant(&mut self, bool_constant: &AST::BoolConstant);
     fn visit_char_constant(&mut self, char_constant: &AST::CharConstant);
 
+    // optional methods
+    fn visit_expression(&mut self, _expr: &AST::ASTNode) {}
+    fn visit_location(&mut self, _location: &AST::ASTNode) {}
+    fn visit_literal(&mut self, _literal: &AST::ASTNode) {}
+
     fn visit_ast_node(&mut self, ast_node: &AST::ASTNode) {
         match ast_node {
             AST::ASTNode::Program(program) => self.visit_program(program),

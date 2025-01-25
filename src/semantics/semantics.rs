@@ -110,88 +110,6 @@ impl Interpreter {
         self.correct = false;
     }
 
-    // visit func for abstract nodes
-    fn visit_literal(&mut self, literal: &AST::ASTNode) {
-        self.checking_type = true;
-        // Rule 4: All types of initializers must match the type of the variable being initialized.
-        match literal {
-            AST::ASTNode::IntConstant(int_constant) => {
-                self.visit_int_constant(int_constant);
-            },
-            AST::ASTNode::BoolConstant(bool_constant) => {
-                self.visit_bool_constant(bool_constant);
-            },
-            AST::ASTNode::CharConstant(char_constant) => {
-                self.visit_char_constant(char_constant);
-            },
-            _ => {
-                self.push_error("Error: invalid type for literal - expected either int or bool.");
-            },
-        }
-        self.checking_type = false;
-    }
-
-    fn visit_expression(&mut self, expression: &AST::ASTNode) {
-        self.in_expr += 1;
-        match expression {
-            AST::ASTNode::UnaryExpression(unary_expression) => {
-                self.visit_unary_expression(unary_expression);
-            },
-            AST::ASTNode::BinaryExpression(binary_expression) => {
-                self.visit_binary_expression(binary_expression);
-            },
-            AST::ASTNode::LenCall(len_call) => {
-                self.visit_len_call(len_call);
-            },
-            AST::ASTNode::MethodCall(method_call) => {
-                self.visit_method_call(method_call);
-            },
-            AST::ASTNode::IndexExpression(index_expression) => {
-                self.visit_index_expression(index_expression);
-            },
-            AST::ASTNode::Identifier(identifier) => {
-                self.visit_identifier(identifier);
-            },
-            AST::ASTNode::IntConstant(int_constant) => {
-                self.visit_int_constant(int_constant);
-            },
-            AST::ASTNode::BoolConstant(bool_constant) => {
-                self.visit_bool_constant(bool_constant);
-            },
-            AST::ASTNode::CharConstant(char_constant) => {
-                self.visit_char_constant(char_constant);
-            },
-            AST::ASTNode::StringConstant(str_constant) => {
-                self.visit_string_constant(str_constant);
-            }
-            _ => {
-                self.push_error("Error: invalid expression type found (check grammar).");
-            },
-        }
-        self.in_expr -= 1;
-
-    }
-
-    fn visit_location(&mut self, location: &AST::ASTNode) {
-        self.in_location = true;
-        match location {
-            AST::ASTNode::Identifier(identifier) => {
-                // Rule 10: An <id> used as a <location> must name a declared local/global variable or formal parameter.
-                self.visit_identifier(identifier);
-            },
-            AST::ASTNode::IndexExpression(index_expression) => {
-                // Rule 10: An <id> used as a <location> must name a declared local/global variable or formal parameter.
-
-                self.visit_index_expression(index_expression);
-            },
-            _ => {
-                self.push_error("Error: invalid location type found (check grammar).");
-                self.result_expr_type = Type::None;
-            },
-        }
-        self.in_location = false;
-    }
-
     // debugging helpers
     #[allow(dead_code)]
     fn print_scope(&mut self) {
@@ -728,10 +646,90 @@ impl Visitor for Interpreter {
         }
     }
 
+    fn visit_expression(&mut self, expression: &AST::ASTNode) {
+        self.in_expr += 1;
+        match expression {
+            AST::ASTNode::UnaryExpression(unary_expression) => {
+                self.visit_unary_expression(unary_expression);
+            },
+            AST::ASTNode::BinaryExpression(binary_expression) => {
+                self.visit_binary_expression(binary_expression);
+            },
+            AST::ASTNode::LenCall(len_call) => {
+                self.visit_len_call(len_call);
+            },
+            AST::ASTNode::MethodCall(method_call) => {
+                self.visit_method_call(method_call);
+            },
+            AST::ASTNode::IndexExpression(index_expression) => {
+                self.visit_index_expression(index_expression);
+            },
+            AST::ASTNode::Identifier(identifier) => {
+                self.visit_identifier(identifier);
+            },
+            AST::ASTNode::IntConstant(int_constant) => {
+                self.visit_int_constant(int_constant);
+            },
+            AST::ASTNode::BoolConstant(bool_constant) => {
+                self.visit_bool_constant(bool_constant);
+            },
+            AST::ASTNode::CharConstant(char_constant) => {
+                self.visit_char_constant(char_constant);
+            },
+            AST::ASTNode::StringConstant(str_constant) => {
+                self.visit_string_constant(str_constant);
+            }
+            _ => {
+                self.push_error("Error: invalid expression type found (check grammar).");
+            },
+        }
+        self.in_expr -= 1;
+    }
+
     fn visit_array_literal(&mut self, array_literal: &AST::ArrayLiteral) {
         for literal in &array_literal.array_values {
             self.visit_literal(literal);
         }
+    }
+
+    fn visit_literal(&mut self, literal: &AST::ASTNode) {
+        self.checking_type = true;
+        // Rule 4: All types of initializers must match the type of the variable being initialized.
+        match literal {
+            AST::ASTNode::IntConstant(int_constant) => {
+                self.visit_int_constant(int_constant);
+            },
+            AST::ASTNode::BoolConstant(bool_constant) => {
+                self.visit_bool_constant(bool_constant);
+            },
+            AST::ASTNode::CharConstant(char_constant) => {
+                self.visit_char_constant(char_constant);
+            },
+            _ => {
+                self.push_error("Error: invalid type for literal - expected either int or bool.");
+            },
+        }
+        self.checking_type = false;
+    }
+
+    fn visit_location(&mut self, location: &AST::ASTNode) {
+        self.in_location = true;
+        match location {
+            AST::ASTNode::Identifier(identifier) => {
+                // Rule 10: An <id> used as a <location> must name a declared local/global variable or formal parameter.
+                self.visit_identifier(identifier);
+            },
+            AST::ASTNode::IndexExpression(index_expression) => {
+                // Rule 10: An <id> used as a <location> must name a declared local/global variable or formal parameter.
+
+                self.visit_index_expression(index_expression);
+            },
+            _ => {
+                self.push_error("Error: invalid location type found (check grammar).");
+                self.result_expr_type = Type::None;
+            },
+        }
+        self.in_location = false;
     }
 
     fn visit_identifier(&mut self, identifier: &AST::Identifier) {
