@@ -240,44 +240,7 @@ impl Visitor for Interpreter {
         }
 
         for statement in &block.statements {
-            match statement.as_ref() {
-                AST::ASTNode::IfStatement(if_statement) => {
-                    self.visit_if_statement(if_statement);
-                },
-                AST::ASTNode::ForStatement(for_statement) => {
-                    self.visit_for_statement(for_statement);
-                },
-                AST::ASTNode::WhileStatement(while_statement) => {
-                    self.visit_while_statement(while_statement);
-                },
-                AST::ASTNode::ReturnStatement(return_statement) => {
-                    self.visit_return_statement(return_statement);
-                },
-                AST::ASTNode::StatementControl(statement_control) => {
-                    self.visit_statement_control(statement_control);
-                },
-                AST::ASTNode::Assignment(assignment) => {
-                    self.visit_assignment(assignment);
-                },
-                AST::ASTNode::MethodCall(method_call) => {
-                    self.visit_method_call(method_call);
-                },
-                AST::ASTNode::LenCall(len_call) => {
-                    self.visit_len_call(len_call);
-                },
-                AST::ASTNode::UnaryExpression(unary_expression) => {
-                    self.visit_unary_expression(unary_expression);
-                },
-                AST::ASTNode::BinaryExpression(binary_expression) => {
-                    self.visit_binary_expression(binary_expression);
-                },
-                AST::ASTNode::IndexExpression(index_expression) => {
-                    self.visit_index_expression(index_expression);
-                },
-                _ => {
-                    self.push_error("Error: invalid statement type in block.");
-                },
-            }
+            statement.accept(self);
         }
         // exit out of lowest scope
         self.scopes.pop();
@@ -823,9 +786,6 @@ impl Visitor for Interpreter {
             }
         }
         self.result_expr_type = Type::Int;
-    }
-
-    fn visit_string_constant(&mut self, _string_constant: &AST::StringConstant) {
     }
 
     fn visit_bool_constant(&mut self, _bool_constant: &AST::BoolConstant) {
