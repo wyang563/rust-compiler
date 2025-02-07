@@ -12,6 +12,7 @@ enum TokenType {
     Char, 
     String,
     Int,
+    Long,
     Bool,
     Identifier,
     EOF,
@@ -93,13 +94,14 @@ fn unpack_token(symbol_text: &str) -> Token {
     let type_map: HashMap<&str, TokenType> = HashMap::from([
         ("IDENTIFIER", TokenType::Identifier),
         ("INTLITERAL", TokenType::Int),
+        ("LONGLITERAL", TokenType::Long),
         ("STRINGLITERAL", TokenType::String),
         ("CHARLITERAL", TokenType::Char),
         ("BOOLEANLITERAL", TokenType::Bool),
     ]);
 
     match parts[1] {
-        "IDENTIFIER" | "CHARLITERAL" | "STRINGLITERAL" | "BOOLEANLITERAL" | "INTLITERAL" => {
+        "IDENTIFIER" | "CHARLITERAL" | "STRINGLITERAL" | "BOOLEANLITERAL" | "INTLITERAL" | "LONGLITERAL" => { 
             return Token {
                 token_type: type_map.get(parts[1]).unwrap().clone(),
                 token_value: parts[2].to_string(),
@@ -129,6 +131,21 @@ fn parse_int_literal(parser_state: &mut ParserState, is_neg: bool) -> Result<AST
             return Ok(int_val);
         },
         _ => return Err(format!("Line: {} - Expected int literal, got: {:?}", 
+                                parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
+    }
+}
+
+fn parse_long_literal(parser_state: &mut ParserState, is_neg: bool) -> Result<AST::LongConstant, String> {
+    match parser_state.cur_token().token_type {
+        TokenType::Long => {
+            let long_val = AST::LongConstant {
+                is_neg: is_neg,
+                value: parser_state.cur_token().token_value.clone(),
+            };
+            parser_state.consume();
+            return Ok(long_val);
+        },
+        _ => return Err(format!("Line: {} - Expected long literal, got: {:?}", 
                                 parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
     }
 }
@@ -177,18 +194,29 @@ fn parse_string_literal(parser_state: &mut ParserState) -> Result<AST::StringCon
 }
 
 fn parse_literal(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
+    let mut is_neg = false;
     if parser_state.cur_token().token_value == "-" {
         parser_state.consume();
-        return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state, true)?));
+        is_neg = true;
     }
     match parser_state.cur_token().token_type {
         TokenType::Int => {
-            return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state, false)?));
+            return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state, is_neg)?));
+        },
+        TokenType::Long => {
+            return Ok(AST::ASTNode::LongConstant(parse_long_literal(parser_state, is_neg)?));
         },
         TokenType::Char => {
+            // TODO: remove this if this violates test cases since technically we shouldn't be doing this
+            if is_neg {
+                return Err(format!("Line: {} - Error - can't have negative sign in front of char literal", parser_state.cur_token().line_num));
+            }
             return Ok(AST::ASTNode::CharConstant(parse_char_literal(parser_state)?));
         },
         TokenType::Bool => {
+            if is_neg {
+                return Err(format!("Line: {} - Error - can't have negative sign in front of bool literal", parser_state.cur_token().line_num));
+            }
             return Ok(AST::ASTNode::BoolConstant(parse_bool_literal(parser_state)?));
         },
         _ => return Err(format!("Line: {} - Expected literal (char, int, bool), got: {:?}", 
@@ -283,6 +311,24 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
             let id = parse_identifier(parser_state, 1)?;
             parser_state.check_token(")", true)?;
             return Ok(AST::ASTNode::LenCall(AST::LenCall {
+                id: Box::new(id),
+            }))
+        },
+        "int" => {
+            parser_state.consume();
+            parser_state.check_token("(", true)?;
+            let id = parse_identifier(parser_state, 1)?;
+            parser_state.check_token(")", true)?;
+            return Ok(AST::ASTNode::IntCast(AST::IntCast {
+                id: Box::new(id),
+            }))
+        },
+        "long" => {
+            parser_state.consume();
+            parser_state.check_token("(", true)?;
+            let id = parse_identifier(parser_state, 1)?;
+            parser_state.check_token(")", true)?;
+            return Ok(AST::ASTNode::LongCast(AST::LongCast {
                 id: Box::new(id),
             }))
         },
@@ -611,7 +657,7 @@ fn parse_block(parser_state: &mut ParserState, func_type: &str) -> Result<AST::B
         statements: vec![],
     };
     // consume field declarations
-    while ["int", "bool", "const"].contains(&parser_state.cur_token().token_value.as_str()) {
+    while ["int", "bool", "const", "long"].contains(&parser_state.cur_token().token_value.as_str()) {
         let field_decl = parse_field_decl(parser_state)?;
         block.fields.push(Box::new(field_decl));
     }
@@ -642,7 +688,7 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
     }
 
     // consume type
-    parser_state.check_multiple_tokens(vec!["int", "bool"], false)?;
+    parser_state.check_multiple_tokens(vec!["int", "bool", "long"], false)?;
     let field_type = parser_state.cur_token().token_value.clone();
     parser_state.consume();
 
@@ -695,14 +741,14 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
 
 fn parse_method_decl(parser_state: &mut ParserState) -> Result<AST::MethodDecl, String> {
     // consume method type
-    parser_state.check_multiple_tokens(vec!["int", "bool", "void"], false)?;
+    parser_state.check_multiple_tokens(vec!["int", "bool", "long", "void"], false)?;
     let method_type = parser_state.cur_token().token_value.clone();
     parser_state.consume();
     let method_name = parse_identifier(parser_state, 0)?;
     parser_state.check_token("(", true)?;
     let mut args: Vec<Box<AST::MethodArgDecl>> = vec![];
     // parse args
-    if vec!["int", "bool"].contains(&parser_state.cur_token().token_value.as_str()) {
+    if vec!["int", "bool", "long"].contains(&parser_state.cur_token().token_value.as_str()) {
         loop {
             let arg_type = parser_state.cur_token().token_value.clone();
             parser_state.consume();
@@ -740,7 +786,7 @@ fn parse_program(parser_state: &mut ParserState) -> Result<AST::Program, String>
     }
 
     // consume field declarations
-    while ["int", "bool", "const"].contains(&parser_state.cur_token().token_value.as_str()) && 
+    while ["int", "bool", "long", "const"].contains(&parser_state.cur_token().token_value.as_str()) && 
             !parser_state.check_incr_token("(", 2) {
         
         let field_decl = parse_field_decl(parser_state)?;
@@ -748,7 +794,7 @@ fn parse_program(parser_state: &mut ParserState) -> Result<AST::Program, String>
     }
 
     // consume method declarations
-    while ["int", "bool", "void"].contains(&parser_state.cur_token().token_value.as_str()) {
+    while ["int", "bool", "long", "void"].contains(&parser_state.cur_token().token_value.as_str()) {
         let method_decl = parse_method_decl(parser_state)?;
         program.methods.push(Box::new(method_decl));
     }

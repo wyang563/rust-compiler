@@ -13,6 +13,7 @@ const RESERVED_LITERALS: &'static [&str] = &[
     "int",
     "return",
     "len",
+    "long",
     "true",
     "void"
 ];

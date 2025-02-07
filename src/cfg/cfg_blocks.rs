@@ -1,20 +1,12 @@
 use super::super::parser::AST;
 
 // blocks in CFG
-
+#[derive(Debug)]
 pub enum Block {
     Basic(BasicBlock),
     Condition(ConditionBlock),
     NoOp(NoOp),
     Decl(DeclBlock),
-    MethodDecl(MethodDeclBlock),
-    ImportDecl(ImportDeclBlock),
-}
-
-pub enum LineType {
-    None,
-    True,
-    False,
 }
 
 impl Block {
@@ -24,8 +16,6 @@ impl Block {
             Block::Condition(block) => block.true_block,
             Block::NoOp(block) => block.next_block,
             Block::Decl(block) => block.next_block,
-            Block::MethodDecl(block) => block.next_block,
-            Block::ImportDecl(block) => block.next_block,
         }
     }
 
@@ -35,38 +25,43 @@ impl Block {
             Block::Condition(_) => (),
             Block::NoOp(block) => block.next_block = Some(ind),
             Block::Decl(block) => block.next_block = Some(ind),
-            Block::MethodDecl(block) => block.next_block = Some(ind),
-            Block::ImportDecl(block) => block.next_block = Some(ind),
+        }
+    }
+
+    pub fn set_branch_block(&mut self, ind: usize, branch_type: bool) {
+        match self {
+            Block::Condition(block) => {
+                if branch_type {
+                    block.true_block = Some(ind);
+                } else {
+                    block.false_block = Some(ind);
+                }
+            },
+            _ => (),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct BasicBlock {
     pub statements: Vec<Box<AST::ASTNode>>,
     pub next_block: Option<usize>,
 }
 
+#[derive(Debug)]
 pub struct ConditionBlock {
     pub cond_expr: Box<AST::ASTNode>,
     pub true_block: Option<usize>,
     pub false_block: Option<usize>,
 }
 
+#[derive(Debug)]
 pub struct NoOp {
     pub next_block: Option<usize>,
 }
 
+#[derive(Debug)]
 pub struct DeclBlock {
     pub decls: Vec<Box<AST::FieldDecl>>,
-    pub next_block: Option<usize>,
-}
-
-pub struct MethodDeclBlock {
-    pub method_decls: Vec<Box<AST::MethodDecl>>,
-    pub next_block: Option<usize>,
-}
-
-pub struct ImportDeclBlock {
-    pub import_decls: Vec<Box<AST::ImportDecl>>,
     pub next_block: Option<usize>,
 }

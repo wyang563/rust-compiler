@@ -17,6 +17,8 @@ pub trait Visitor {
     fn visit_expression(&mut self, _expr: &AST::ASTNode) {}
     fn visit_method_call(&mut self, _method_call: &AST::MethodCall) {}
     fn visit_len_call(&mut self, _len_call: &AST::LenCall) {}
+    fn visit_int_cast(&mut self, _int_cast: &AST::IntCast) {}
+    fn visit_long_cast(&mut self, _long_cast: &AST::LongCast) {}
     fn visit_unary_expression(&mut self, _unary_expression: &AST::UnaryExpression) {}
     fn visit_binary_expression(&mut self, _binary_expression: &AST::BinaryExpression) {}
     fn visit_index_expression(&mut self, _index_expression: &AST::IndexExpression) {}
@@ -25,6 +27,7 @@ pub trait Visitor {
     fn visit_literal(&mut self, _literal: &AST::ASTNode) {}
     fn visit_identifier(&mut self, _identifier: &AST::Identifier) {}
     fn visit_int_constant(&mut self, _int_constant: &AST::IntConstant) {}
+    fn visit_long_constant(&mut self, _long_constant: &AST::LongConstant) {}
     fn visit_string_constant(&mut self, _string_constant: &AST::StringConstant) {}
     fn visit_bool_constant(&mut self, _bool_constant: &AST::BoolConstant) {}
     fn visit_char_constant(&mut self, _char_constant: &AST::CharConstant) {}   
@@ -46,12 +49,15 @@ pub trait Visitor {
             AST::ASTNode::Assignment(assignment) => self.visit_assignment(assignment),
             AST::ASTNode::MethodCall(method_call) => self.visit_method_call(method_call),
             AST::ASTNode::LenCall(len_call) => self.visit_len_call(len_call),
+            AST::ASTNode::IntCast(int_cast) => self.visit_int_cast(int_cast),
+            AST::ASTNode::LongCast(long_cast) => self.visit_long_cast(long_cast),
             AST::ASTNode::UnaryExpression(unary_expression) => self.visit_unary_expression(unary_expression),
             AST::ASTNode::BinaryExpression(binary_expression) => self.visit_binary_expression(binary_expression),
             AST::ASTNode::IndexExpression(index_expression) => self.visit_index_expression(index_expression),
             AST::ASTNode::ArrayLiteral(array_literal) => self.visit_array_literal(array_literal),
             AST::ASTNode::Identifier(identifier) => self.visit_identifier(identifier),
             AST::ASTNode::IntConstant(int_constant) => self.visit_int_constant(int_constant),
+            AST::ASTNode::LongConstant(long_constant) => self.visit_long_constant(long_constant),
             AST::ASTNode::StringConstant(string_constant) => self.visit_string_constant(string_constant),
             AST::ASTNode::BoolConstant(bool_constant) => self.visit_bool_constant(bool_constant),
             AST::ASTNode::CharConstant(char_constant) => self.visit_char_constant(char_constant),

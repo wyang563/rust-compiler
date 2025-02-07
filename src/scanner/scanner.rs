@@ -56,12 +56,17 @@ fn add_integer(cur_token: &mut String, next_char: char) -> bool {
         } 
     } else if cur_token.len() > 1 {
         // check if hex number, otherwise only accept decimal digits
-        if cur_token.chars().nth(1).unwrap() == 'x' {
+        if cur_token.chars().last().unwrap() == 'L' {
+            return true;
+        } else if cur_token.chars().nth(1).unwrap() == 'x' {
             if is_hex(next_char) {
                 cur_token.push(next_char);
                 return false;
             }
         } else if next_char.is_numeric() {
+            cur_token.push(next_char);
+            return false;
+        } else if next_char == 'L' {
             cur_token.push(next_char);
             return false;
         }
@@ -268,7 +273,11 @@ fn scan_program(file_str: String) -> Result<Vec<String>, String> {
             },
             ScanType::Integer => {
                 if add_integer(&mut cur_token, next_char) {
-                    tokens.push(format!("{} INTLITERAL {}", scanner_state.line_num, cur_token));
+                    if cur_token.chars().last().unwrap() == 'L' {
+                        tokens.push(format!("{} LONGLITERAL {}", scanner_state.line_num, cur_token)); 
+                    } else {
+                        tokens.push(format!("{} INTLITERAL {}", scanner_state.line_num, cur_token));
+                    }
                     cur_token = String::new();
                     if is_valid_symbol(next_char) || is_whitespace(next_char) || is_alphabetic(next_char) {
                         if !is_whitespace(next_char) {
