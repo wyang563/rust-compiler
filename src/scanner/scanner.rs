@@ -389,6 +389,7 @@ pub fn scan(file_path: &Path, mut writer: Box<dyn std::io::Write>) {
             if let Err(write_error) = writeln!(writer, "{}", e) {
                 eprintln!("Failed to write line to output: {}", write_error);
             }
+            eprintln!("Error scaning file file: \n {:?}", e);
             std::process::exit(1);
         }
     }

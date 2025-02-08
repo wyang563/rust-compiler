@@ -699,7 +699,7 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
         let var_id = parse_identifier(parser_state, 0)?;
         let mut is_array = false;
         let mut array_len: Option<AST::IntConstant> = None;
-        let initializer: Option<AST::ASTNode> = None;
+        let mut initializer: Option<AST::ASTNode> = None;
 
         // case if we have id[int] initializer
         if parser_state.cur_token().token_value.clone() == "[" {
@@ -712,10 +712,10 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
         }
 
         // case if we have = sign in var initializer
-        // if parser_state.cur_token().token_value.clone() == "=" {
-        //     parser_state.consume();
-        //     initializer = Some(parse_initializer(parser_state)?);
-        // }
+        if parser_state.cur_token().token_value.clone() == "=" {
+            parser_state.consume();
+            initializer = Some(parse_initializer(parser_state)?);
+        }
         
         // add new var to array
         vars.push(Box::new(AST::VarDecl {
@@ -839,8 +839,8 @@ pub fn parse(file_path: &Path, mut writer: Box<dyn std::io::Write>, debug: bool)
         },
         Err(e) => {
             writeln!(writer, "Error parsing file: \n {:?}", e).unwrap();
+            eprintln!("Error parsing file: \n {:?}", e);
             std::process::exit(1);
         }
     }
 }   
-
