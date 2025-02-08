@@ -807,7 +807,7 @@ fn parse_program(parser_state: &mut ParserState) -> Result<AST::Program, String>
     return Ok(program);
 }
 
-pub fn parse_file(file_path: &Path) -> Result<AST::Program, String> {
+pub fn parse_file(file_path: &Path) -> Result<AST::Program, Vec<String>> {
     // Lex file first
     match scan_file(file_path) {
         Ok(tokens) => {    
@@ -821,7 +821,10 @@ pub fn parse_file(file_path: &Path) -> Result<AST::Program, String> {
                 token_value: "EOF".to_string(),
                 line_num: "".to_string(),
             });
-            return parse_program(&mut parser_state);
+            match parse_program(&mut parser_state) {
+                Ok(parsed_program) => return Ok(parsed_program),
+                Err(e) => return Err(vec![e])
+            }
         }, 
         Err(e) => return Err(e)
     }
@@ -837,9 +840,12 @@ pub fn parse(file_path: &Path, mut writer: Box<dyn std::io::Write>, debug: bool)
             }
             std::process::exit(0);
         },
-        Err(e) => {
-            writeln!(writer, "Error parsing file: \n {:?}", e).unwrap();
-            eprintln!("Error parsing file: \n {:?}", e);
+        Err(errors) => {
+            for error in errors {
+                if let Err(e) = writeln!(writer, "{}", error) {
+                    eprintln!("Failed to write token to output: {}", e);
+                }
+            }
             std::process::exit(1);
         }
     }

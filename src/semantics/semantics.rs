@@ -840,7 +840,6 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
         }
 
         Err(errors) => {
-            let errors = vec![errors];
             return Err(errors);
         }
     }
