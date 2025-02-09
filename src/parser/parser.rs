@@ -699,22 +699,14 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
         let var_id = parse_identifier(parser_state, 0)?;
         let mut is_array = false;
         let mut array_len: Option<AST::IntConstant> = None;
-        let mut initializer: Option<AST::ASTNode> = None;
+        let initializer: Option<AST::ASTNode> = None;
 
         // case if we have id[int] initializer
         if parser_state.cur_token().token_value.clone() == "[" {
             parser_state.consume();
-            if parser_state.cur_token().token_value != "]" {
-                array_len = Some(parse_int_literal(parser_state, false)?);
-            }
+            array_len = Some(parse_int_literal(parser_state, false)?);
             parser_state.check_token("]", true)?;
             is_array = true;
-        }
-
-        // case if we have = sign in var initializer
-        if parser_state.cur_token().token_value.clone() == "=" {
-            parser_state.consume();
-            initializer = Some(parse_initializer(parser_state)?);
         }
         
         // add new var to array
