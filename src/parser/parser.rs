@@ -712,10 +712,10 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
         }
 
         // case if we have = sign in var initializer
-        if parser_state.cur_token().token_value.clone() == "=" {
-            parser_state.consume();
-            initializer = Some(parse_initializer(parser_state)?);
-        }
+        // if parser_state.cur_token().token_value.clone() == "=" {
+        //     parser_state.consume();
+        //     initializer = Some(parse_initializer(parser_state)?);
+        // }
         
         // add new var to array
         vars.push(Box::new(AST::VarDecl {
