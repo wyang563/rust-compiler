@@ -1,2 +1,1 @@
-Parsed file: "tests/experiment.txt" 
-
+Scanner: Line 2 - Error: invalid char: '

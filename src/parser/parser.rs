@@ -207,37 +207,14 @@ fn parse_literal(parser_state: &mut ParserState) -> Result<AST::ASTNode, String>
             return Ok(AST::ASTNode::LongConstant(parse_long_literal(parser_state, is_neg)?));
         },
         TokenType::Char => {
-            // TODO: remove this if this violates test cases since technically we shouldn't be doing this
-            // if is_neg {
-            //     return Err(format!("Line: {} - Error - can't have negative sign in front of char literal", parser_state.cur_token().line_num));
-            // }
             return Ok(AST::ASTNode::CharConstant(parse_char_literal(parser_state)?));
         },
         TokenType::Bool => {
-            // if is_neg {
-            //     return Err(format!("Line: {} - Error - can't have negative sign in front of bool literal", parser_state.cur_token().line_num));
-            // }
             return Ok(AST::ASTNode::BoolConstant(parse_bool_literal(parser_state)?));
         },
         _ => return Err(format!("Line: {} - Expected literal (char, int, bool), got: {:?}", 
                                 parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
     }  
-}
-
-fn parse_array_literal(parser_state: &mut ParserState) -> Result<AST::ArrayLiteral, String> {
-    parser_state.check_token("{", true)?;
-    let mut array_vals = vec![];
-    loop {
-        array_vals.push(Box::new(parse_literal(parser_state)?));
-
-        if parser_state.check_token(",", true) != Ok(()) {
-            break;
-        }
-    }
-    parser_state.check_token("}", true)?;
-    return Ok(AST::ArrayLiteral {
-        array_values: array_vals,
-    });
 }
 
 fn parse_identifier(parser_state: &mut ParserState, status: i32) -> Result<AST::Identifier, String> {
@@ -251,15 +228,6 @@ fn parse_identifier(parser_state: &mut ParserState, status: i32) -> Result<AST::
             return Ok(id);
         },
         _ => return Err(format!("Line: {} - Expected identifier, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
-    }
-}
-
-fn parse_initializer(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-    if parser_state.cur_token().token_value == "{" {
-        let initializer = parse_array_literal(parser_state)?;
-        return Ok(AST::ASTNode::ArrayLiteral(initializer));
-    } else {
-        return parse_literal(parser_state);
     }
 }
 
