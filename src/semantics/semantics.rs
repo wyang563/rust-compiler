@@ -86,6 +86,7 @@ impl Interpreter {
     fn string_to_type(&mut self, str_type: &str) -> Type {
         match str_type {
             "int" => Type::Int,
+            "long" => Type::Long,
             "bool" => Type::Bool,
             "void" => Type::Void,
             _ => panic!("invalid type"),
@@ -521,6 +522,22 @@ impl Visitor for Interpreter {
         self.result_expr_type = Type::Int;
     }
 
+    fn visit_int_cast(&mut self, int_cast: &AST::IntCast) {
+        self.visit_expression(int_cast.cast_expr.as_ref());
+        if ![Type::Long, Type::Int].contains(&self.result_expr_type) {
+            self.push_error("Error: The expression in an int cast must have type int or long.");
+        }
+        self.result_expr_type = Type::Int;
+    }
+
+    fn visit_long_cast(&mut self, long_cast: &AST::LongCast) {
+        self.visit_expression(long_cast.cast_expr.as_ref());
+        if ![Type::Long, Type::Int].contains(&self.result_expr_type) {
+            self.push_error("Error: The expression in an long cast must have type int or long.");
+        }
+        self.result_expr_type = Type::Int;
+    }
+
     fn visit_unary_expression(&mut self, unary_expression: &AST::UnaryExpression) {
         // Rule 17: The operands of the unary minus, ⟨arith op⟩s and ⟨rel op⟩s must have type int
         // Rule 19: The operands of ⟨cond op⟩s and the operand of logical not ( ! ) must have type bool
@@ -633,6 +650,9 @@ impl Visitor for Interpreter {
             AST::ASTNode::IntConstant(int_constant) => {
                 self.visit_int_constant(int_constant);
             },
+            AST::ASTNode::LongConstant(long_constant) => {
+                self.visit_long_constant(long_constant);
+            },
             AST::ASTNode::BoolConstant(bool_constant) => {
                 self.visit_bool_constant(bool_constant);
             },
@@ -661,6 +681,9 @@ impl Visitor for Interpreter {
         match literal {
             AST::ASTNode::IntConstant(int_constant) => {
                 self.visit_int_constant(int_constant);
+            },
+            AST::ASTNode::LongConstant(long_constant) => {
+                self.visit_long_constant(long_constant);
             },
             AST::ASTNode::BoolConstant(bool_constant) => {
                 self.visit_bool_constant(bool_constant);
@@ -760,7 +783,7 @@ impl Visitor for Interpreter {
             } else {
                 int_constant_str = int_constant.value[2..].to_string();
             }
-            match i64::from_str_radix(int_constant_str.as_str(), 16) {
+            match i32::from_str_radix(int_constant_str.as_str(), 16) {
                 Ok(_) => (),
                 Err(_) => {
                     self.push_error(&format!("Error: Integer literal {} is out of 64 bit range.", int_constant.value));
@@ -771,7 +794,7 @@ impl Visitor for Interpreter {
             if int_constant.is_neg {
                 int_constant_str = format!("-{}", int_constant_str);
             }
-            match int_constant_str.as_str().parse::<i64>() {
+            match int_constant_str.as_str().parse::<i32>() {
                 Ok(_) => (),
                 Err(_) => {
                     self.push_error(&format!("Error: Integer literal {} is out of 64 bit range.", int_constant.value));
@@ -786,6 +809,42 @@ impl Visitor for Interpreter {
             }
         }
         self.result_expr_type = Type::Int;
+    }
+
+    fn visit_long_constant(&mut self, long_constant: &AST::LongConstant) {
+        if long_constant.value.contains("x") {
+            let long_constant_str: String;
+            if long_constant.is_neg {
+                long_constant_str = format!("-{}", &long_constant.value[2..]);
+            } else {
+                long_constant_str = long_constant.value[2..].to_string();
+            }
+            match i64::from_str_radix(long_constant_str.as_str(), 16) {
+                Ok(_) => (),
+                Err(_) => {
+                    self.push_error(&format!("Error: Long literal {} is out of 64 bit range.", long_constant.value));
+                }
+            }
+        } else {
+            let mut long_constant_str = long_constant.value.clone();
+            if long_constant.is_neg {
+                long_constant_str = format!("-{}", long_constant_str);
+            }
+            match long_constant_str.as_str().parse::<i64>() {
+                Ok(_) => (),
+                Err(_) => {
+                    self.push_error(&format!("Error: Integer literal {} is out of 64 bit range.", long_constant.value));
+                }
+            }
+        }
+        if self.checking_type {
+            if self.init_type != Type::Long {
+                self.push_error(&format!("Error: expected {:?} as type for initializer variable not long", self.init_type));
+                self.result_expr_type = self.init_type.clone();
+                return;
+            }
+        } 
+        self.result_expr_type = Type::Long;
     }
 
     fn visit_bool_constant(&mut self, _bool_constant: &AST::BoolConstant) {

@@ -314,25 +314,7 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
                 id: Box::new(id),
             }))
         },
-        "int" => {
-            parser_state.consume();
-            parser_state.check_token("(", true)?;
-            let id = parse_identifier(parser_state, 1)?;
-            parser_state.check_token(")", true)?;
-            return Ok(AST::ASTNode::IntCast(AST::IntCast {
-                id: Box::new(id),
-            }))
-        },
-        "long" => {
-            parser_state.consume();
-            parser_state.check_token("(", true)?;
-            let id = parse_identifier(parser_state, 1)?;
-            parser_state.check_token(")", true)?;
-            return Ok(AST::ASTNode::LongCast(AST::LongCast {
-                id: Box::new(id),
-            }))
-        },
-        "(" => {
+       "(" => {
             parser_state.consume();
             let expr = parse_expression(parser_state)?;
             parser_state.check_token(")", true)?;
@@ -387,12 +369,39 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
     }
 }
 
+fn parse_cast_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
+    match parser_state.cur_token().token_value.as_str() {
+        "int" => {
+            parser_state.consume();
+            parser_state.check_token("(", true)?;
+            let cast_expr = parse_stand_alone_expr(parser_state)?;
+            parser_state.check_token(")", true)?;
+            return Ok(AST::ASTNode::IntCast(AST::IntCast {
+                cast_expr: Box::new(cast_expr),
+            }))
+        },
+        "long" => {
+            parser_state.consume();
+            parser_state.check_token("(", true)?;
+            let cast_expr = parse_stand_alone_expr(parser_state)?;
+            parser_state.check_token(")", true)?;
+            return Ok(AST::ASTNode::LongCast(AST::LongCast {
+                cast_expr: Box::new(cast_expr),
+            }))
+        },
+ 
+        _ => {
+            return parse_stand_alone_expr(parser_state);
+        }
+    }
+}
+
 fn parse_mul_op_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-    let mut left = parse_stand_alone_expr(parser_state)?;
+    let mut left = parse_cast_expr(parser_state)?;
     while ["*", "/", "%"].contains(&parser_state.cur_token().token_value.as_str()) {
         let op = parser_state.cur_token().token_value.clone();
         parser_state.consume();
-        let right = parse_stand_alone_expr(parser_state)?;
+        let right = parse_cast_expr(parser_state)?;
         left = AST::ASTNode::BinaryExpression(AST::BinaryExpression {
             op,
             left_expr: Box::new(left),

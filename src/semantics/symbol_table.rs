@@ -35,6 +35,7 @@ impl Entry {
 pub enum Type {
     Void,
     Int,
+    Long,
     Bool,
     IntArray,
     BoolArray,
