@@ -265,7 +265,7 @@ impl LenCall {
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct IntCast {
-    pub id: Box<Identifier>,
+    pub id: Box<ASTNode>,
 }
 
 impl IntCast {
@@ -278,7 +278,7 @@ impl IntCast {
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct LongCast {
-    pub id: Box<Identifier>,
+    pub id: Box<ASTNode>,
 }
 
 impl LongCast {

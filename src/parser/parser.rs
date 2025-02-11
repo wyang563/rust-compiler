@@ -285,19 +285,19 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
         "int" => {
             parser_state.consume();
             parser_state.check_token("(", true)?;
-            let id = parse_identifier(parser_state, 1)?;
+            let cast_expr = parse_stand_alone_expr(parser_state)?;
             parser_state.check_token(")", true)?;
             return Ok(AST::ASTNode::IntCast(AST::IntCast {
-                id: Box::new(id),
+                id: Box::new(cast_expr),
             }))
         },
         "long" => {
             parser_state.consume();
             parser_state.check_token("(", true)?;
-            let id = parse_identifier(parser_state, 1)?;
+            let cast_expr = parse_stand_alone_expr(parser_state)?;
             parser_state.check_token(")", true)?;
             return Ok(AST::ASTNode::LongCast(AST::LongCast {
-                id: Box::new(id),
+                id: Box::new(cast_expr),
             }))
         },
         "(" => {
