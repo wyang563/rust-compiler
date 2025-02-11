@@ -2,7 +2,7 @@ mod utils;
 mod scanner;
 mod parser;
 mod semantics;
-mod cfg;
+mod irs;
 mod assembler;
 
 fn get_writer(output: &Option<std::path::PathBuf>) -> Box<dyn std::io::Write> {

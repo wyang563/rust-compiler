@@ -1,5 +1,5 @@
-use super::super::parser::AST;
-use super::super::parser::visitor::Visitor;
+use super::super::super::parser::AST;
+use super::super::super::parser::visitor::Visitor;
 use super::cfg_blocks::{BasicBlock, Block, ConditionBlock, DeclBlock, NoOp};
 use std::collections::HashMap;
 
