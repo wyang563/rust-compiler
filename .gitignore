@@ -17,10 +17,8 @@ Cargo.lock
 .vscode/
 
 # Test Cases
-phase1-parser/
-phase1-scanner/
-private-tests-main/
-public-tests-main/
+tests/
+tests24/
 out.txt
 out_unit.txt
 
