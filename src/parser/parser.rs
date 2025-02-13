@@ -224,21 +224,21 @@ fn parse_literal(parser_state: &mut ParserState) -> Result<AST::ASTNode, String>
     }  
 }
 
-fn parse_array_literal(parser_state: &mut ParserState) -> Result<AST::ArrayLiteral, String> {
-    parser_state.check_token("{", true)?;
-    let mut array_vals = vec![];
-    loop {
-        array_vals.push(Box::new(parse_literal(parser_state)?));
+// fn parse_array_literal(parser_state: &mut ParserState) -> Result<AST::ArrayLiteral, String> {
+//     parser_state.check_token("{", true)?;
+//     let mut array_vals = vec![];
+//     loop {
+//         array_vals.push(Box::new(parse_literal(parser_state)?));
 
-        if parser_state.check_token(",", true) != Ok(()) {
-            break;
-        }
-    }
-    parser_state.check_token("}", true)?;
-    return Ok(AST::ArrayLiteral {
-        array_values: array_vals,
-    });
-}
+//         if parser_state.check_token(",", true) != Ok(()) {
+//             break;
+//         }
+//     }
+//     parser_state.check_token("}", true)?;
+//     return Ok(AST::ArrayLiteral {
+//         array_values: array_vals,
+//     });
+// }
 
 fn parse_identifier(parser_state: &mut ParserState, status: i32) -> Result<AST::Identifier, String> {
     match parser_state.cur_token().token_type {
@@ -254,14 +254,14 @@ fn parse_identifier(parser_state: &mut ParserState, status: i32) -> Result<AST::
     }
 }
 
-fn parse_initializer(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-    if parser_state.cur_token().token_value == "{" {
-        let initializer = parse_array_literal(parser_state)?;
-        return Ok(AST::ASTNode::ArrayLiteral(initializer));
-    } else {
-        return parse_literal(parser_state);
-    }
-}
+// fn parse_initializer(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
+//     if parser_state.cur_token().token_value == "{" {
+//         let initializer = parse_array_literal(parser_state)?;
+//         return Ok(AST::ASTNode::ArrayLiteral(initializer));
+//     } else {
+//         return parse_literal(parser_state);
+//     }
+// }
 
 fn parse_location(parser_state: &mut ParserState, status: i32) -> Result<AST::ASTNode, String> {
     let id = parse_identifier(parser_state, status)?;
@@ -348,7 +348,7 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
         _ => {
             // Handle identifier-based expressions (location or method_call) and literals
             match parser_state.cur_token().token_type {
-                TokenType::Int | TokenType::Char | TokenType::Bool => {
+                TokenType::Int | TokenType::Char | TokenType::Bool | TokenType::Long => {
                     parse_literal(parser_state)
                 },
                 TokenType::Identifier => {
@@ -374,7 +374,7 @@ fn parse_cast_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode, Strin
         "int" => {
             parser_state.consume();
             parser_state.check_token("(", true)?;
-            let cast_expr = parse_stand_alone_expr(parser_state)?;
+            let cast_expr = parse_expression(parser_state)?;
             parser_state.check_token(")", true)?;
             return Ok(AST::ASTNode::IntCast(AST::IntCast {
                 cast_expr: Box::new(cast_expr),
@@ -383,7 +383,7 @@ fn parse_cast_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode, Strin
         "long" => {
             parser_state.consume();
             parser_state.check_token("(", true)?;
-            let cast_expr = parse_stand_alone_expr(parser_state)?;
+            let cast_expr = parse_expression(parser_state)?;
             parser_state.check_token(")", true)?;
             return Ok(AST::ASTNode::LongCast(AST::LongCast {
                 cast_expr: Box::new(cast_expr),
@@ -708,7 +708,7 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
         let var_id = parse_identifier(parser_state, 0)?;
         let mut is_array = false;
         let mut array_len: Option<AST::IntConstant> = None;
-        let mut initializer: Option<AST::ASTNode> = None;
+        let initializer: Option<AST::ASTNode> = None;
 
         // case if we have id[int] initializer
         if parser_state.cur_token().token_value.clone() == "[" {
@@ -718,12 +718,6 @@ fn parse_field_decl(parser_state: &mut ParserState) -> Result<AST::FieldDecl, St
             }
             parser_state.check_token("]", true)?;
             is_array = true;
-        }
-
-        // case if we have = sign in var initializer
-        if parser_state.cur_token().token_value.clone() == "=" {
-            parser_state.consume();
-            initializer = Some(parse_initializer(parser_state)?);
         }
         
         // add new var to array
@@ -756,9 +750,11 @@ fn parse_method_decl(parser_state: &mut ParserState) -> Result<AST::MethodDecl, 
     let method_name = parse_identifier(parser_state, 0)?;
     parser_state.check_token("(", true)?;
     let mut args: Vec<Box<AST::MethodArgDecl>> = vec![];
+
     // parse args
     if vec!["int", "bool", "long"].contains(&parser_state.cur_token().token_value.as_str()) {
         loop {
+            parser_state.check_multiple_tokens(vec!["int", "bool", "long"], false)?;
             let arg_type = parser_state.cur_token().token_value.clone();
             parser_state.consume();
             let arg_name = parse_identifier(parser_state, 0)?;
@@ -768,9 +764,10 @@ fn parse_method_decl(parser_state: &mut ParserState) -> Result<AST::MethodDecl, 
             }));
             if parser_state.check_token(",", true) != Ok(()) {
                 break;
-            }
+            } 
         }
     }
+    
     parser_state.check_token(")", true)?;
     let method_block = parse_block(parser_state, method_type.as_str())?;
     return Ok(AST::MethodDecl {
