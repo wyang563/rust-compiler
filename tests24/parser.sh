@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PARSER="target/debug/rust-compiler"
-PUBLIC_ROOT="tests/phase1-parser/public"
+PUBLIC_ROOT="tests24/public-tests-main/parser"
 PRIVATE_ROOT="tests24/private-tests-main/parser"
 TIMEOUT=5
 COUNT=0

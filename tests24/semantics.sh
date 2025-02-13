@@ -1,8 +1,8 @@
 #!/bin/bash
 
 INTERPRETER="target/debug/rust-compiler"
-PUBLIC_ROOT="tests/public-tests-main/semantics"
-PRIVATE_ROOT="tests/private-tests-main/semantics"
+PUBLIC_ROOT="tests24/public-tests-main/semantics"
+PRIVATE_ROOT="tests24/private-tests-main/semantics"
 TIMEOUT=5
 COUNT=0
 TOTAL=0
@@ -13,13 +13,13 @@ run_tests () {
     COUNT=0
     TOTAL=0
     for filename in "$1"/illegal/*.dcf; do
-        touch tests/tmp.out
+        touch tests24/tmp.out
         echo "Testing: $filename"
-        timeout $TIMEOUT $INTERPRETER --target inter $filename --output tests/tmp.out
+        timeout $TIMEOUT $INTERPRETER --target inter $filename --output tests24/tmp.out
         CODE=$?
         if [ $CODE -ne 1 ]; then
             echo "Fail (illegal): $(basename "$filename")"
-            rm -f tests/tmp.out
+            rm -f tests24/tmp.out
         else 
             echo "Pass (illegal): $(basename "$filename")"
             COUNT=$((COUNT+1))
@@ -29,13 +29,13 @@ run_tests () {
     done
 
     for filename in "$1"/legal/*.dcf; do
-        touch tests/tmp.out
+        touch tests24/tmp.out
         echo "Testing: $filename"
-        timeout $TIMEOUT $INTERPRETER --target inter $filename --output tests/tmp.out
+        timeout $TIMEOUT $INTERPRETER --target inter $filename --output tests24/tmp.out
         CODE=$?
         if [ $CODE -ne 0 ]; then
             echo "Fail (legal): $(basename "$filename")"
-            rm -f tests/tmp.out
+            rm -f tests24/tmp.out
         else 
             echo "Pass (legal): $(basename "$filename")"
             COUNT=$((COUNT+1))

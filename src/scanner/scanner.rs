@@ -51,7 +51,7 @@ Add next_char to integer
 */
 fn add_integer(cur_token: &mut String, next_char: char) -> bool {
     if cur_token.len() == 1 {
-        if next_char.is_numeric() || (cur_token == "0" && next_char == 'x') {
+        if next_char.is_numeric() || (cur_token == "0" && next_char == 'x') || next_char == 'L' {
             cur_token.push(next_char);
             return false;
         } 
@@ -59,15 +59,15 @@ fn add_integer(cur_token: &mut String, next_char: char) -> bool {
         // check if hex number, otherwise only accept decimal digits
         if cur_token.chars().last().unwrap() == 'L' {
             return true;
+        } else if next_char == 'L' {
+            cur_token.push(next_char);
+            return false;
         } else if cur_token.chars().nth(1).unwrap() == 'x' {
             if is_hex(next_char) {
                 cur_token.push(next_char);
                 return false;
             }
         } else if next_char.is_numeric() {
-            cur_token.push(next_char);
-            return false;
-        } else if next_char == 'L' {
             cur_token.push(next_char);
             return false;
         }
@@ -320,7 +320,7 @@ fn scan_program(file_str: String) -> Result<Vec<String>, Vec<String>> {
                             }
                         }
                     }
-                    Err(e) => {
+                    Err(_) => {
                         cur_token = String::new();
                     }
                 }
@@ -356,7 +356,11 @@ fn scan_program(file_str: String) -> Result<Vec<String>, Vec<String>> {
     if cur_token.len() > 0 {
         match scanner_state.state {
             ScanType::Integer => {
-                tokens.push(format!("{} INTLITERAL {}", scanner_state.line_num, cur_token));
+                if cur_token.chars().last().unwrap() == 'L' {
+                    tokens.push(format!("{} LONGLITERAL {}", scanner_state.line_num, cur_token));
+                } else {
+                    tokens.push(format!("{} INTLITERAL {}", scanner_state.line_num, cur_token));
+                }
             },
             ScanType::Identifier => {
                 if is_reserved_literal(&cur_token) {

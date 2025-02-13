@@ -49,13 +49,14 @@ pub enum InstructionType {
     target: t (identifier or index expression)
     var1: v (constant or variable value)
      */
-    Load, // stores given 
-    
+    Load,     
+    Move,
+
     /*
     Stores variable value onto operand stack
     store_var: s (variable or constant to store into)
      */
-    Store, // stores given variable value onto operand stack
+    Store,
 
     /*
     func_var: f (function we are calling) 
