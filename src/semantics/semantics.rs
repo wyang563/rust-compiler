@@ -1,3 +1,5 @@
+use crate::parser::AST::ASTNode;
+
 use super::super::parser::parser::parse_file;
 use super::super::parser::AST;
 use super::super::parser::visitor::Visitor;
@@ -300,6 +302,7 @@ impl Visitor for Interpreter {
             let array_type = match self.init_type {
                 Type::Int => Type::IntArray,
                 Type::Bool => Type::BoolArray,
+                Type::Long => Type::LongArray,
                 _ => panic!("invalid type"),
             };
 
@@ -484,9 +487,9 @@ impl Visitor for Interpreter {
                             if self.result_expr_type != expected_type {
                                 self.push_error(&format!("Error: expected parameter {} in method call {} to have type {:?} but found type {:?}", i, method_name, expected_type, self.result_expr_type));
                             }
-                            if self.result_expr_type == Type::IntArray || self.result_expr_type == Type::BoolArray {
+                            if [Type::IntArray, Type::LongArray, Type::BoolArray].contains(&self.result_expr_type) {
                                 self.push_error(&format!("Error: Array variables may not be used as parameters to non-import methods."));
-                            } 
+                            }
                         }
                         self.result_expr_type = method_entry.return_type;
 
@@ -535,7 +538,7 @@ impl Visitor for Interpreter {
         if ![Type::Long, Type::Int].contains(&self.result_expr_type) {
             self.push_error("Error: The expression in an long cast must have type int or long.");
         }
-        self.result_expr_type = Type::Int;
+        self.result_expr_type = Type::Long;
     }
 
     fn visit_unary_expression(&mut self, unary_expression: &AST::UnaryExpression) {
@@ -551,10 +554,10 @@ impl Visitor for Interpreter {
             },
             "-" => {
                 self.visit_expression(unary_expression.expr.as_ref());
-                if self.result_expr_type != Type::Int {
-                    self.push_error("Error: The operand of unary minus must have type int.");
+                if ![Type::Int, Type::Long].contains(&self.result_expr_type) {
+                    self.push_error("Error: The operand of unary minus must have type int or long.");
                 }
-                self.result_expr_type = Type::Int;
+                self.result_expr_type = self.result_expr_type.clone();
             },
             _ => {
                 self.push_error(&format!("Error: invalid unary operator {} found.", unary_expression.op));
@@ -573,14 +576,20 @@ impl Visitor for Interpreter {
         let right_type = self.result_expr_type.clone();
         match binary_expression.op.as_str() {
             "+" | "-" | "*" | "/" | "%" => {
-                if left_type != Type::Int || right_type != Type::Int {
-                    self.push_error(&format!("Error: The operands of the arithmetic operator {} must have type int.", binary_expression.op));
+                if ![Type::Int, Type::Long].contains(&left_type) {
+                    self.push_error(&format!("Error: The operands of the arithmetic operator {} must have type int or long.", binary_expression.op));
                 }
-                self.result_expr_type = Type::Int;
+                if left_type != right_type {
+                    self.push_error(&format!("Error: The type of the operands of the arithmetic operator {} must be the same.", binary_expression.op));
+                }
+                self.result_expr_type = left_type.clone();
             },
             "<" | "<=" | ">" | ">=" => {
-                if left_type != Type::Int || right_type != Type::Int {
-                    self.push_error(&format!("Error: The operands of the relational operator {} must have type int.", binary_expression.op));
+                if ![Type::Int, Type::Long].contains(&left_type) {
+                    self.push_error(&format!("Error: The operands of the comparison operator {} must have type int or long.", binary_expression.op));
+                }
+                if left_type != right_type {
+                    self.push_error(&format!("Error: The type of the operands of the comparison operator {} must be the same.", binary_expression.op));
                 }
                 self.result_expr_type = Type::Bool;
             },
@@ -615,6 +624,7 @@ impl Visitor for Interpreter {
                     }
                     match array_entry.get_type() {
                         Type::IntArray => self.result_expr_type = Type::Int,
+                        Type::LongArray => self.result_expr_type = Type::Long,
                         Type::BoolArray => self.result_expr_type = Type::Bool,
                         _ => self.result_expr_type = Type::None,
                     }
@@ -637,6 +647,12 @@ impl Visitor for Interpreter {
             },
             AST::ASTNode::LenCall(len_call) => {
                 self.visit_len_call(len_call);
+            },
+            AST::ASTNode::IntCast(int_cast) => {
+                self.visit_int_cast(int_cast);
+            },
+            AST::ASTNode::LongCast(long_cast) => {
+                self.visit_long_cast(long_cast);
             },
             AST::ASTNode::MethodCall(method_call) => {
                 self.visit_method_call(method_call);

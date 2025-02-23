@@ -38,6 +38,7 @@ pub enum Type {
     Long,
     Bool,
     IntArray,
+    LongArray,
     BoolArray,
     None, // default value for error propogation
 }

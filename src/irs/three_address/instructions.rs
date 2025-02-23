@@ -1,3 +1,4 @@
+
 #[derive(Clone)]
 pub enum InstructionType {
     /*
@@ -79,10 +80,23 @@ pub enum InstructionType {
      */
     Call,
     Ret,
-    Goto, // go to specific tag in code
+    Goto, // go to specific label in code
+
+    // label representation
+    Label,
 }
 
-pub trait Instruction {
+pub enum Instruction {
+    Binary(BinaryInstruction),
+    Unary(UnaryInstruction),
+    Push(PushInstruction),
+    Flow(FlowInstruction),
+    Array(ArrayInstruction),
+    Call(Call),
+    Ret(Ret),
+}
+
+pub trait InstructionTrait {
     fn get_type(&self) -> InstructionType;
 }
 
@@ -91,12 +105,12 @@ Add, Sub, Mul, Div, Mod, Eq, And, Or, Gt, Geq
 */
 pub struct BinaryInstruction {
     target: String,
-    var1: String,
-    var2: String,
+    var1: usize,
+    var2: usize,
     instruction: InstructionType,
 }
 
-impl Instruction for BinaryInstruction {
+impl InstructionTrait for BinaryInstruction {
     fn get_type(&self) -> InstructionType {
         self.instruction.clone()
     }
@@ -106,54 +120,62 @@ impl Instruction for BinaryInstruction {
 Not, Neg, IntCast, LongCast, Move
 */
 pub struct UnaryInstruction {
-    target: String,
-    var: String,
+    target: usize,
+    var: usize,
     instruction: InstructionType,
 }
 
-impl Instruction for UnaryInstruction {
+impl InstructionTrait for UnaryInstruction {
     fn get_type(&self) -> InstructionType {
         self.instruction.clone()
     }
 }
 
 /*
-Push, Goto
+Push
 */
-pub struct SingleVarInstruction {
-    var: String,
+pub struct PushInstruction {
+    var: usize,
     instruction: InstructionType,
 }
 
-impl Instruction for SingleVarInstruction {
+impl InstructionTrait for PushInstruction {
     fn get_type(&self) -> InstructionType {
         self.instruction.clone()
     }
+}
+
+/*
+Goto, Label
+*/
+pub struct FlowInstruction {
+    var: String, // label we're going to or label we're representing 
+    instruction: InstructionType,
 }
 
 /*
 LoadArray, StoreArray
 */
 pub struct ArrayInstruction {
-    target: String,
-    var: String,
+    target: usize,
+    var: usize,
     ind: usize,
     instruction: InstructionType,
 }
 
-impl Instruction for ArrayInstruction {
+impl InstructionTrait for ArrayInstruction {
     fn get_type(&self) -> InstructionType {
         self.instruction.clone()
     }
 }
 
 pub struct Call {
-    func_var: String,
+    func_var: usize,
     p: usize,
     instruction: InstructionType,
 }
 
-impl Instruction for Call {
+impl InstructionTrait for Call {
     fn get_type(&self) -> InstructionType {
         self.instruction.clone()
     }
@@ -163,7 +185,7 @@ pub struct Ret {
     instruction: InstructionType,
 }
 
-impl Instruction for Ret {
+impl InstructionTrait for Ret {
     fn get_type(&self) -> InstructionType {
         self.instruction.clone()
     }

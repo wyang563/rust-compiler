@@ -138,9 +138,13 @@ fn parse_int_literal(parser_state: &mut ParserState, is_neg: bool) -> Result<AST
 fn parse_long_literal(parser_state: &mut ParserState, is_neg: bool) -> Result<AST::LongConstant, String> {
     match parser_state.cur_token().token_type {
         TokenType::Long => {
+            let mut long_val = parser_state.cur_token().token_value.clone();
+            if long_val.chars().last().unwrap() == 'L' {
+                long_val.pop();
+            }
             let long_val = AST::LongConstant {
                 is_neg: is_neg,
-                value: parser_state.cur_token().token_value.clone(),
+                value: long_val,
             };
             parser_state.consume();
             return Ok(long_val);
