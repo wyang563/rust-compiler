@@ -446,16 +446,16 @@ impl Visitor for Interpreter {
             match assignment.assign_op.as_str() {
                 "=" => (),
                 "+=" | "-=" | "*=" | "/=" | "%=" => {
-                    if lhs_type != Type::Int || rhs_type != Type::Int {
-                        self.push_error(&format!("Error: The location and expression in an assignment must have type int in compound expression {}.", assignment.assign_op.as_str()));
+                    if ![Type::Int, Type::Long].contains(&lhs_type) {
+                        self.push_error(&format!("Error: The location and expression in an assignment must have type int or long in compound expression {}.", assignment.assign_op.as_str()));
                     }
                 },
                 _ => self.push_error(&format!("Error: invalid assignment operator found.")),
             }
         } else {
             // case we have ++, -- operation
-            if lhs_type != Type::Int {
-                self.push_error(&format!("Error: The location in an increment or decrement assignment expression must have type int."));
+            if ![Type::Int, Type::Long].contains(&lhs_type) {
+                self.push_error(&format!("Error: The location in an increment or decrement assignment expression must have type int or long."));
             }
         }
     }
