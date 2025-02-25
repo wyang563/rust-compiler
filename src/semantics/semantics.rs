@@ -354,11 +354,10 @@ impl Visitor for Interpreter {
 
     fn visit_for_statement(&mut self, for_statement: &AST::ForStatement) {
         let incr_var = for_statement.start_assignment.assign_var.as_ref();
-        // Rule the incr variable must be an int
         self.visit_location(incr_var);
-        if self.result_expr_type != Type::Int {
-            self.push_error("Error: The increment variable in a for statement must have type int.");
-        }
+        // if self.result_expr_type != Type::Int {
+        //     self.push_error("Error: The increment variable in a for statement must have type int.");
+        // }
         // Visit initial incr var assignment to check validity
         self.visit_assignment(&for_statement.start_assignment);
 
