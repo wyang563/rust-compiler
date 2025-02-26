@@ -29,7 +29,6 @@ pub struct Interpreter {
     in_loop: u32, // we use ints here instead of bool flags since if we have layered loops or expressions we don't want to set this to false once we finish an inner loop/expression
     in_expr: u32,
     in_location: bool,
-    lhs_assignment_type: Type, // for checking when a numerical value should be parsed as an int or long
 
     // func result holders
     result_expr_type: Type,
@@ -355,9 +354,7 @@ impl Visitor for Interpreter {
     fn visit_for_statement(&mut self, for_statement: &AST::ForStatement) {
         let incr_var = for_statement.start_assignment.assign_var.as_ref();
         self.visit_location(incr_var);
-        // if self.result_expr_type != Type::Int {
-        //     self.push_error("Error: The increment variable in a for statement must have type int.");
-        // }
+
         // Visit initial incr var assignment to check validity
         self.visit_assignment(&for_statement.start_assignment);
 
@@ -436,9 +433,7 @@ impl Visitor for Interpreter {
             let rhs_expr = assignment.expr.as_ref()
                                                     .as_ref()
                                                     .unwrap();
-            self.lhs_assignment_type = lhs_type.clone();
             self.visit_expression(rhs_expr);
-            self.lhs_assignment_type = Type::None;
             let rhs_type = self.result_expr_type.clone();
             if lhs_type != rhs_type {
                 self.push_error(&format!("Error: The location and expression in an assignment must have the same type."));
@@ -666,14 +661,7 @@ impl Visitor for Interpreter {
                 self.visit_identifier(identifier);
             },
             AST::ASTNode::IntConstant(int_constant) => {
-                if self.lhs_assignment_type == Type::Long {
-                    self.visit_long_constant(&AST::LongConstant {
-                        value: int_constant.value.clone(),
-                        is_neg: int_constant.is_neg,
-                    });
-                } else {
-                    self.visit_int_constant(int_constant);
-                }
+                self.visit_int_constant(int_constant);
             },
             AST::ASTNode::LongConstant(long_constant) => {
                 self.visit_long_constant(long_constant);
@@ -912,7 +900,6 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
                 in_loop: 0,
                 in_expr: 0,
                 in_location: false,
-                lhs_assignment_type: Type::None,
                 result_expr_type: Type::None,
                 debug: debug,
             };

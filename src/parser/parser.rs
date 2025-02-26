@@ -228,22 +228,6 @@ fn parse_literal(parser_state: &mut ParserState) -> Result<AST::ASTNode, String>
     }  
 }
 
-// fn parse_array_literal(parser_state: &mut ParserState) -> Result<AST::ArrayLiteral, String> {
-//     parser_state.check_token("{", true)?;
-//     let mut array_vals = vec![];
-//     loop {
-//         array_vals.push(Box::new(parse_literal(parser_state)?));
-
-//         if parser_state.check_token(",", true) != Ok(()) {
-//             break;
-//         }
-//     }
-//     parser_state.check_token("}", true)?;
-//     return Ok(AST::ArrayLiteral {
-//         array_values: array_vals,
-//     });
-// }
-
 fn parse_identifier(parser_state: &mut ParserState, status: i32) -> Result<AST::Identifier, String> {
     match parser_state.cur_token().token_type {
         TokenType::Identifier => {
@@ -257,15 +241,6 @@ fn parse_identifier(parser_state: &mut ParserState, status: i32) -> Result<AST::
         _ => return Err(format!("Line: {} - Expected identifier, got: {:?}", parser_state.cur_token().line_num, parser_state.cur_token().token_value)),
     }
 }
-
-// fn parse_initializer(parser_state: &mut ParserState) -> Result<AST::ASTNode, String> {
-//     if parser_state.cur_token().token_value == "{" {
-//         let initializer = parse_array_literal(parser_state)?;
-//         return Ok(AST::ASTNode::ArrayLiteral(initializer));
-//     } else {
-//         return parse_literal(parser_state);
-//     }
-// }
 
 fn parse_location(parser_state: &mut ParserState, status: i32) -> Result<AST::ASTNode, String> {
     let id = parse_identifier(parser_state, status)?;
@@ -326,18 +301,21 @@ fn parse_stand_alone_expr(parser_state: &mut ParserState) -> Result<AST::ASTNode
         },
         "-" => {
             parser_state.consume();
-            
             // try to parse expression as integer literal
-            match parse_int_literal(parser_state, true) {
-                Ok(int_literal) => {
-                    return Ok(AST::ASTNode::IntConstant(int_literal));
+            match parser_state.cur_token().token_type {
+                TokenType::Int => {
+                    return Ok(AST::ASTNode::IntConstant(parse_int_literal(parser_state, true)?));
                 },
-                Err(_) => {
+                TokenType::Long => {
+                    return Ok(AST::ASTNode::LongConstant(parse_long_literal(parser_state, true)?));
+                },
+                _ => {
                     let expr = parse_stand_alone_expr(parser_state)?;
                     return Ok(AST::ASTNode::UnaryExpression(AST::UnaryExpression {
                         op: "-".to_string(),
                         expr: Box::new(expr),
                     }))
+ 
                 }
             }
         },
