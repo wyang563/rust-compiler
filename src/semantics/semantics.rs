@@ -15,11 +15,6 @@ use super::symbol_table::{Entry,
 use core::panic;
 use std::collections::HashMap;
 
-pub struct SymbolTable {
-    scopes: Vec<Box<Table>>,
-    graph: HashMap<usize, Vec<usize>>, 
-}
-
 pub struct Interpreter {
     scopes: Vec<Box<Table>>, // vec of scopes which scope graph will reference by index
     errors: Vec<String>,
@@ -33,6 +28,7 @@ pub struct Interpreter {
     in_expr: u32,
     in_location: bool,
     var_count: usize,
+    cur_scope_ind: usize,
 
     // func result holders
     result_expr_type: Type,
@@ -48,54 +44,40 @@ impl Interpreter {
         // Rule 12: An ⟨id⟩ used as a ⟨location⟩ must name a declared local/global variable or parameter.
 
         // loop through scopes in reverse and check for value
-        for scope in self.scope_stack.iter().rev() {
-            if scope.entries.contains_key(var_name) {
-                return Ok(scope.entries[var_name].clone());
+        let mut search_scope_ind = self.cur_scope_ind;
+        loop {
+            let cur_scope = self.scopes[search_scope_ind].as_ref();
+            if cur_scope.entries.contains_key(var_name) {
+                return Ok(cur_scope.entries[var_name].clone());
             }
+            search_scope_ind = match cur_scope.parent_ind {
+                Some(parent_ind) => parent_ind,
+                None => break,
+            };
         }
 
-        if self.global_scope.entries.contains_key(var_name) {
-            return Ok(self.global_scope.entries[var_name].clone());
-        }
         self.push_error(&format!("Error: Identifier {} is used before it is declared.", var_name));
         return Err(());
     }
 
     fn check_declared(&mut self, var_name: &str) -> bool {
         // Rule 1: No identifier is declared twice in the same scope
-        if self.scope_stack.len() == 0 {
-            if self.global_scope.entries.contains_key(var_name) {
-                self.push_error(&format!("Error: Identifier {} is declared twice in the same scope.", var_name));
-                return true;
-            }
-        } else {
-            let current_scope = self.scope_stack[self.scope_stack.len() - 1].as_ref();
-            if current_scope.entries.contains_key(var_name) {
-                self.push_error(&format!("Error: Identifier {} is declared twice in the same scope.", var_name));
-                return true;
-            }
+        let cur_scope = self.scopes[self.cur_scope_ind].as_ref();
+        if cur_scope.entries.contains_key(var_name) {
+            self.push_error(&format!("Error: Identifier {} is declared twice in the same scope.", var_name));
+            return true;
         }
         return false;
     }
 
     fn write_to_table(&mut self, var_name: &str, entry: Entry) {
-        if self.scope_stack.len() == 0 {
-            self.global_scope.entries
-                            .insert(var_name.to_string(), entry);
-        } else {
-            let scopes_len = self.scope_stack.len();
-            self.scope_stack[scopes_len - 1].entries
-                                    .insert(var_name.to_string(), entry);
-        }
+        let cur_scope = self.scopes[self.cur_scope_ind].as_mut();
+        cur_scope.entries.insert(var_name.to_string(), entry);
     }
 
     fn incr_var_count(&mut self) -> usize {
         self.var_count += 1;
         return self.var_count - 1;
-    }
-
-    fn get_cur_scope(&mut self) -> usize {
-        self.scope_stack[self.scope_stack.len() - 1].scope
     }
 
     fn string_to_type(&mut self, str_type: &str) -> Type {
@@ -118,7 +100,7 @@ impl Interpreter {
             name: arg_name.to_string(),
             var_type: arg_type.clone(),
             is_const: false,
-            scope: self.get_cur_scope(),
+            scope: self.cur_scope_ind,
             id: self.incr_var_count(),
         };
     }
@@ -132,17 +114,8 @@ impl Interpreter {
     #[allow(dead_code)]
     fn print_scope(&mut self) {
         if self.debug {
-            if self.scope_stack.len() == 0 {
-                println!("Global Scope:");
-                for (key, value) in &self.global_scope.entries {
-                    println!("{}: {:?}", key, value);
-                }
-            } else {
-                let current_scope = self.scope_stack[self.scope_stack.len() - 1].as_ref();
-                println!("Current Scope:");
-                for (key, value) in &current_scope.entries {
-                    println!("{}: {:?}", key, value);
-                }
+            for (key, value) in &self.scopes[self.cur_scope_ind].entries {
+                println!("{}: {:?}", key, value);
             }
         }
     }
@@ -167,8 +140,9 @@ impl Visitor for Interpreter {
             self.visit_method_decl(method_decl);
         }
         // Rule 3: The program contains a definition for a method called main that has type void and takes no parameters.
-        if self.global_scope.entries.contains_key("main") {
-            match self.global_scope.entries.get("main").unwrap() {
+        let global_scope = self.scopes[0].as_ref();
+        if global_scope.entries.contains_key("main") {
+            match global_scope.entries.get("main").unwrap() {
                 Entry::Method(main_entry) => {
                     if main_entry.name != "main" || main_entry.return_type != Type::Void || main_entry.param_count != 0 {
                         self.push_error("Error: The program does not contain a definition for a method called main that has type void and takes no parameters.");
@@ -193,10 +167,10 @@ impl Visitor for Interpreter {
             name: import_id.clone(),
             return_type: Type::Int,
             is_const: false,
-            scope: self.get_cur_scope(),
+            scope: self.cur_scope_ind,
             id: self.incr_var_count(),
         };
-        self.global_scope.entries.insert(import_id, Entry::Import(import_entry));
+        self.write_to_table(import_id.as_str(), Entry::Import(import_entry));
     }
 
     fn visit_field_decl(&mut self, field_decl: &AST::FieldDecl) {
@@ -222,7 +196,7 @@ impl Visitor for Interpreter {
             is_const: false,
             param_list: vec![],
             param_count: method_decl.args.len(),
-            scope: self.get_cur_scope(),
+            scope: self.cur_scope_ind,
             id: self.incr_var_count(),
         };
 
@@ -235,11 +209,12 @@ impl Visitor for Interpreter {
         let method_table = Table {
             entries: HashMap::new(),
             method_return_type: method_type.clone(),
-            scope: self.get_cur_scope() + 1,
+            scope_ind: self.scopes.len(),
+            parent_ind: Some(self.cur_scope_ind),
         };
 
         self.scopes.push(Box::new(method_table));
-        self.scope_stack.push(Box::new(method_table));
+        self.cur_scope_ind = self.scopes.len() - 1;
 
         // add method args to scope
         for arg in &method_decl.args {
@@ -250,11 +225,15 @@ impl Visitor for Interpreter {
 
     fn visit_block(&mut self, block: &AST::Block) {
         if !self.init_method {
+            let cur_scope = self.scopes[self.cur_scope_ind].as_ref();
             let block_table = Table {
                 entries: HashMap::new(),
-                method_return_type: self.scope_stack[0].method_return_type.clone(),
+                method_return_type: cur_scope.method_return_type.clone(),
+                scope_ind: self.scopes.len(),
+                parent_ind: Some(self.cur_scope_ind),
             };
-            self.scope_stack.push(Box::new(block_table));
+            self.scopes.push(Box::new(block_table));
+            self.cur_scope_ind = self.scopes.len() - 1;
         }
         self.init_method = false;
 
@@ -266,7 +245,7 @@ impl Visitor for Interpreter {
             statement.accept(self);
         }
         // exit out of lowest scope
-        self.scope_stack.pop();
+        self.cur_scope_ind = self.scopes[self.cur_scope_ind].parent_ind.unwrap();
     }
 
     fn visit_var_decl(&mut self, var_decl: &AST::VarDecl) {
@@ -331,7 +310,7 @@ impl Visitor for Interpreter {
                 name: var_name.to_string(),
                 var_type: array_type,
                 is_const: var_decl.is_const,
-                scope: self.cur_scope,
+                scope: self.cur_scope_ind,
                 id: var_id,
             }));
         } 
@@ -349,7 +328,7 @@ impl Visitor for Interpreter {
                 name: var_name.to_string(),
                 var_type: self.init_type.clone(),
                 is_const: var_decl.is_const,
-                scope: self.cur_scope,
+                scope: self.cur_scope_ind,
                 id: var_id,
             }));
         }
@@ -420,10 +399,10 @@ impl Visitor for Interpreter {
     fn visit_return_statement(&mut self, return_statement: &AST::ReturnStatement) {
         
         // Rule 10: A return statement must not have a return value unless it appears in the body of a method that is declared to return a value
-        if self.scope_stack.len() == 0 {
+        if self.cur_scope_ind == 0 {
             self.push_error("Error: A return statement must appear in a method body definition, not the global scope.");
         }
-        let method_return_type = self.scope_stack[0].method_return_type.clone();
+        let method_return_type = self.scopes[self.cur_scope_ind].method_return_type.clone();
 
         if method_return_type == Type::Void {
             if return_statement.expr.is_some() {
@@ -910,14 +889,14 @@ impl Visitor for Interpreter {
     }
 }
 
-pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec<String>> {
+pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<Vec<Box<Table>>, Vec<String>> {
     let _input = std::fs::read_to_string(input).expect("Filename is incorrect.");
     match parse_file(input) {
         Ok(ast) => {
             let global_scope = Table {
                 method_return_type: Type::None,
                 entries: HashMap::new(),
-                scope_index: 0,
+                scope_ind: 0,
                 parent_ind: None,
             };
             let scopes = vec![Box::new(global_scope)];
@@ -933,6 +912,7 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
                 in_expr: 0,
                 in_location: false,
                 var_count: 0,
+                cur_scope_ind: 0,
                 result_expr_type: Type::None,
                 debug: debug,
             };
@@ -942,7 +922,7 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
             // create final symbol table
 
             if interpreter.correct {
-                return Ok(());
+                return Ok(interpreter.scopes);
             } else {
                 return Err(interpreter.errors);
             }

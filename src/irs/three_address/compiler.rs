@@ -1,14 +1,14 @@
 use super::super::super::parser::visitor::{Visitor};
 use super::instructions::{Instruction, ArrayInstruction, Call, InstructionType, PushInstruction, FlowInstruction, UnaryInstruction, BinaryInstruction, Ret};
 use super::super::super::parser::AST;
-use super::super::super::semantics::symbol_table::{Entry, ArrayEntry, VarEntry, MethodEntry, ImportEntry, GlobalTable, MethodTable};
+use super::super::super::semantics::symbol_table::{Entry, ArrayEntry, VarEntry, MethodEntry, ImportEntry, Table};
 use std::collections::HashMap;
 
 pub struct ThreeAddressCode {
     var_entries: Vec<Entry>, // vector of entry variables that can be referenced
     global_instructions: Vec<Box<Instruction>>,
     func_instructions: HashMap<String, Vec<Box<Instruction>>>,
-    scopes: Vec<Box<MethodTable>>,
+    scopes: Vec<Box<Table>>,
 
     // flags
     is_global: bool,

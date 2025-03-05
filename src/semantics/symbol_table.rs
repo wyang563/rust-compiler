@@ -89,6 +89,6 @@ pub struct ImportEntry {
 pub struct Table {
     pub method_return_type: Type,
     pub entries: HashMap<String, Entry>,
-    pub scope_index: usize,
+    pub scope_ind: usize,
     pub parent_ind: Option<usize>,
 }
