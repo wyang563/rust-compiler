@@ -49,6 +49,8 @@ pub struct VarEntry {
     pub name: String,
     pub var_type: Type,
     pub is_const: bool,
+    pub scope: usize,
+    pub id: usize,
 }
 
 #[derive(Clone)]
@@ -57,6 +59,8 @@ pub struct ArrayEntry {
     pub name: String,
     pub var_type: Type,
     pub is_const: bool,
+    pub scope: usize, 
+    pub id: usize,
 }
 
 #[derive(Clone)]
@@ -67,6 +71,8 @@ pub struct MethodEntry {
     pub is_const: bool,
     pub param_list: Vec<VarEntry>,
     pub param_count: usize,
+    pub scope: usize,
+    pub id: usize,
 }
 
 #[derive(Clone)]
@@ -75,15 +81,14 @@ pub struct ImportEntry {
     pub name: String,
     pub is_const: bool,
     pub return_type: Type, // int by default
+    pub scope: usize,
+    pub id: usize,
 }
 
 #[derive(Clone)]
-pub struct GlobalTable {
-    pub entries: HashMap<String, Entry>
-}
-
-#[derive(Clone)]
-pub struct MethodTable {
+pub struct Table {
     pub method_return_type: Type,
     pub entries: HashMap<String, Entry>,
+    pub scope_index: usize,
+    pub parent_ind: Option<usize>,
 }

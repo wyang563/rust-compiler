@@ -4,16 +4,17 @@ use super::super::super::parser::AST;
 use super::super::super::semantics::symbol_table::{Entry, ArrayEntry, VarEntry, MethodEntry, ImportEntry, GlobalTable, MethodTable};
 use std::collections::HashMap;
 
-pub struct ThreeAddressCompiler {
+pub struct ThreeAddressCode {
     var_entries: Vec<Entry>, // vector of entry variables that can be referenced
-    instructions: Vec<Box<Instruction>>,
-    funcs: HashMap<String, Vec<Box<Instruction>>>,
+    global_instructions: Vec<Box<Instruction>>,
+    func_instructions: HashMap<String, Vec<Box<Instruction>>>,
+    scopes: Vec<Box<MethodTable>>,
 
     // flags
     is_global: bool,
 }
 
-impl Visitor for ThreeAddressCompiler {
+impl Visitor for ThreeAddressCode {
     fn visit_program(&mut self, _program: &AST::Program) {
         self.is_global = true;
         for import in &_program.imports {
@@ -30,7 +31,9 @@ impl Visitor for ThreeAddressCompiler {
         }
     }
 
-    fn visit_import_decl(&mut self, _import_decl: &AST::ImportDecl) {}
+    fn visit_import_decl(&mut self, _import_decl: &AST::ImportDecl) {
+        
+    }
     
     fn visit_field_decl(&mut self, _field_decl: &AST::FieldDecl) {
         for var_decl in &_field_decl.vars {
@@ -95,6 +98,15 @@ impl Visitor for ThreeAddressCompiler {
     fn visit_char_constant(&mut self, _char_constant: &AST::CharConstant) {}   
 }
 
-pub fn compile_three_address(ast: AST::Program) {
+pub fn compile_three_address(ast: AST::Program) -> ThreeAddressCode {
+    let mut tac = ThreeAddressCode {
+        var_entries: Vec::new(),
+        global_instructions: Vec::new(),
+        func_instructions: HashMap::new(),
+        scopes: Vec::new(),
+        is_global: false,
+    };
 
+    tac.visit_program(&ast);
+    return tac;
 }

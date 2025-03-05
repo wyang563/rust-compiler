@@ -8,17 +8,20 @@ use super::symbol_table::{Entry,
                           ArrayEntry,
                           MethodEntry,
                           ImportEntry,
-                          GlobalTable, 
-                          MethodTable,
+                          Table,
                           Type,
                         };
 
 use core::panic;
 use std::collections::HashMap;
 
+pub struct SymbolTable {
+    scopes: Vec<Box<Table>>,
+    graph: HashMap<usize, Vec<usize>>, 
+}
+
 pub struct Interpreter {
-    global_scope: GlobalTable,
-    scopes: Vec<Box<MethodTable>>,
+    scopes: Vec<Box<Table>>, // vec of scopes which scope graph will reference by index
     errors: Vec<String>,
     correct: bool,
 
@@ -29,6 +32,7 @@ pub struct Interpreter {
     in_loop: u32, // we use ints here instead of bool flags since if we have layered loops or expressions we don't want to set this to false once we finish an inner loop/expression
     in_expr: u32,
     in_location: bool,
+    var_count: usize,
 
     // func result holders
     result_expr_type: Type,
@@ -44,7 +48,7 @@ impl Interpreter {
         // Rule 12: An ⟨id⟩ used as a ⟨location⟩ must name a declared local/global variable or parameter.
 
         // loop through scopes in reverse and check for value
-        for scope in self.scopes.iter().rev() {
+        for scope in self.scope_stack.iter().rev() {
             if scope.entries.contains_key(var_name) {
                 return Ok(scope.entries[var_name].clone());
             }
@@ -59,13 +63,13 @@ impl Interpreter {
 
     fn check_declared(&mut self, var_name: &str) -> bool {
         // Rule 1: No identifier is declared twice in the same scope
-        if self.scopes.len() == 0 {
+        if self.scope_stack.len() == 0 {
             if self.global_scope.entries.contains_key(var_name) {
                 self.push_error(&format!("Error: Identifier {} is declared twice in the same scope.", var_name));
                 return true;
             }
         } else {
-            let current_scope = self.scopes[self.scopes.len() - 1].as_ref();
+            let current_scope = self.scope_stack[self.scope_stack.len() - 1].as_ref();
             if current_scope.entries.contains_key(var_name) {
                 self.push_error(&format!("Error: Identifier {} is declared twice in the same scope.", var_name));
                 return true;
@@ -75,14 +79,23 @@ impl Interpreter {
     }
 
     fn write_to_table(&mut self, var_name: &str, entry: Entry) {
-        if self.scopes.len() == 0 {
+        if self.scope_stack.len() == 0 {
             self.global_scope.entries
                             .insert(var_name.to_string(), entry);
         } else {
-            let scopes_len = self.scopes.len();
-            self.scopes[scopes_len - 1].entries
+            let scopes_len = self.scope_stack.len();
+            self.scope_stack[scopes_len - 1].entries
                                     .insert(var_name.to_string(), entry);
         }
+    }
+
+    fn incr_var_count(&mut self) -> usize {
+        self.var_count += 1;
+        return self.var_count - 1;
+    }
+
+    fn get_cur_scope(&mut self) -> usize {
+        self.scope_stack[self.scope_stack.len() - 1].scope
     }
 
     fn string_to_type(&mut self, str_type: &str) -> Type {
@@ -105,6 +118,8 @@ impl Interpreter {
             name: arg_name.to_string(),
             var_type: arg_type.clone(),
             is_const: false,
+            scope: self.get_cur_scope(),
+            id: self.incr_var_count(),
         };
     }
 
@@ -117,13 +132,13 @@ impl Interpreter {
     #[allow(dead_code)]
     fn print_scope(&mut self) {
         if self.debug {
-            if self.scopes.len() == 0 {
+            if self.scope_stack.len() == 0 {
                 println!("Global Scope:");
                 for (key, value) in &self.global_scope.entries {
                     println!("{}: {:?}", key, value);
                 }
             } else {
-                let current_scope = self.scopes[self.scopes.len() - 1].as_ref();
+                let current_scope = self.scope_stack[self.scope_stack.len() - 1].as_ref();
                 println!("Current Scope:");
                 for (key, value) in &current_scope.entries {
                     println!("{}: {:?}", key, value);
@@ -178,6 +193,8 @@ impl Visitor for Interpreter {
             name: import_id.clone(),
             return_type: Type::Int,
             is_const: false,
+            scope: self.get_cur_scope(),
+            id: self.incr_var_count(),
         };
         self.global_scope.entries.insert(import_id, Entry::Import(import_entry));
     }
@@ -198,7 +215,6 @@ impl Visitor for Interpreter {
         let method_name_str = method_decl.name
                                             .name
                                             .as_str();
-        
         // write function to global scope
         let mut method_entry = MethodEntry {
             name: method_name_str.to_string(),
@@ -206,6 +222,8 @@ impl Visitor for Interpreter {
             is_const: false,
             param_list: vec![],
             param_count: method_decl.args.len(),
+            scope: self.get_cur_scope(),
+            id: self.incr_var_count(),
         };
 
         for arg in &method_decl.args {
@@ -214,12 +232,14 @@ impl Visitor for Interpreter {
         self.write_to_table(method_decl.name.name.as_str(), Entry::Method(method_entry));
 
         // create new scope
-        let method_table = MethodTable {
+        let method_table = Table {
             entries: HashMap::new(),
             method_return_type: method_type.clone(),
+            scope: self.get_cur_scope() + 1,
         };
 
         self.scopes.push(Box::new(method_table));
+        self.scope_stack.push(Box::new(method_table));
 
         // add method args to scope
         for arg in &method_decl.args {
@@ -230,11 +250,11 @@ impl Visitor for Interpreter {
 
     fn visit_block(&mut self, block: &AST::Block) {
         if !self.init_method {
-            let block_table = MethodTable {
+            let block_table = Table {
                 entries: HashMap::new(),
-                method_return_type: self.scopes[0].method_return_type.clone(),
+                method_return_type: self.scope_stack[0].method_return_type.clone(),
             };
-            self.scopes.push(Box::new(block_table));
+            self.scope_stack.push(Box::new(block_table));
         }
         self.init_method = false;
 
@@ -246,7 +266,7 @@ impl Visitor for Interpreter {
             statement.accept(self);
         }
         // exit out of lowest scope
-        self.scopes.pop();
+        self.scope_stack.pop();
     }
 
     fn visit_var_decl(&mut self, var_decl: &AST::VarDecl) {
@@ -306,10 +326,13 @@ impl Visitor for Interpreter {
                 _ => panic!("invalid type"),
             };
 
+            let var_id = self.incr_var_count();
             self.write_to_table(var_name, Entry::Array( ArrayEntry {
                 name: var_name.to_string(),
                 var_type: array_type,
                 is_const: var_decl.is_const,
+                scope: self.cur_scope,
+                id: var_id,
             }));
         } 
         
@@ -320,10 +343,14 @@ impl Visitor for Interpreter {
                                         .as_ref()
                                         .unwrap());
             }
+
+            let var_id = self.incr_var_count();
             self.write_to_table(var_name, Entry::Var( VarEntry {
                 name: var_name.to_string(),
                 var_type: self.init_type.clone(),
                 is_const: var_decl.is_const,
+                scope: self.cur_scope,
+                id: var_id,
             }));
         }
     }
@@ -393,10 +420,10 @@ impl Visitor for Interpreter {
     fn visit_return_statement(&mut self, return_statement: &AST::ReturnStatement) {
         
         // Rule 10: A return statement must not have a return value unless it appears in the body of a method that is declared to return a value
-        if self.scopes.len() == 0 {
+        if self.scope_stack.len() == 0 {
             self.push_error("Error: A return statement must appear in a method body definition, not the global scope.");
         }
-        let method_return_type = self.scopes[0].method_return_type.clone();
+        let method_return_type = self.scope_stack[0].method_return_type.clone();
 
         if method_return_type == Type::Void {
             if return_statement.expr.is_some() {
@@ -887,11 +914,16 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
     let _input = std::fs::read_to_string(input).expect("Filename is incorrect.");
     match parse_file(input) {
         Ok(ast) => {
+            let global_scope = Table {
+                method_return_type: Type::None,
+                entries: HashMap::new(),
+                scope_index: 0,
+                parent_ind: None,
+            };
+            let scopes = vec![Box::new(global_scope)];
+
             let mut interpreter = Interpreter {
-                global_scope: GlobalTable {
-                    entries: HashMap::new(),
-                },
-                scopes: vec![],
+                scopes: scopes,
                 errors: vec![],
                 correct: true,
                 checking_type: false,
@@ -900,10 +932,15 @@ pub fn interpret_file(input: &std::path::PathBuf, debug: bool) -> Result<(), Vec
                 in_loop: 0,
                 in_expr: 0,
                 in_location: false,
+                var_count: 0,
                 result_expr_type: Type::None,
                 debug: debug,
             };
+
             ast.accept(&mut interpreter);
+
+            // create final symbol table
+
             if interpreter.correct {
                 return Ok(());
             } else {
